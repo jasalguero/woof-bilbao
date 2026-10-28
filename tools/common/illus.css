@@ -26,3 +26,12 @@
 .il .cushion{fill:var(--il-cushion,#b99ce8)}
 .il .zzz{fill:var(--il-line,#2b2340);font:700 28px system-ui,sans-serif}
 .il .bg1{fill:var(--il-bg1,#ffd6a8)}.il .bg2{fill:var(--il-bg2,#cfe3ff)}
+.il .ti1{fill:var(--il-ti1,#cfd5dc)}.il .ti2{fill:var(--il-ti2,#aab3bd)}.il .ti3{fill:var(--il-ti3,#e6eaef)}
+.il .seam{stroke:var(--il-seam,#8a939d);stroke-width:1.5}
+.il .glass{fill:var(--il-glass,#8fc3dc)}.il .tower{fill:var(--il-tower,#7fa7bf)}
+.il .salve{stroke:var(--il-salve,#d9362b)}.il .deck{fill:var(--il-deck,#6d7a86)}
+.il .track{stroke:var(--il-line,#2b2340)}.il .fun{fill:var(--il-fun,#d9362b)}
+.il .puppy{fill:var(--il-puppy,#5aa857)}
+.il .fl1{fill:#ff7fb5}.il .fl2{fill:#ffd93b}.il .fl3{fill:#b79cff}.il .fl4{fill:#fff}.il .fl5{fill:#ff8a3d}
+.il.skyline{height:auto;aspect-ratio:1200/220}
+.il .arch{fill:none}

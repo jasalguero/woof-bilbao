@@ -67,20 +67,76 @@ def ball(x, y, r=14):
     return f'<circle class="o ball" cx="{x}" cy="{y}" r="{r}"/><path class="o line" d="M{x-r} {y} q{r} -{r*0.8} {2*r} 0" fill="none"/>'
 
 
-def bridge(w, y):
+def bridge(w, y, x0=0):
     # White arched footbridge, a nod to Bilbao's Zubizuri
-    return (f'<path class="bridge" d="M{w*0.08} {y} Q{w*0.32} {y-70} {w*0.56} {y}" fill="none" stroke-width="7"/>'
-            + "".join(f'<line class="bridge" x1="{w*(0.08+i*0.048)}" y1="{y}" x2="{w*0.32}" y2="{y-70}" stroke-width="2"/>' for i in range(1, 10))
-            + f'<rect class="bridge" x="{w*0.06}" y="{y}" width="{w*0.52}" height="6"/>')
+    return (f'<path class="bridge arch" d="M{x0+w*0.08} {y} Q{x0+w*0.32} {y-70} {x0+w*0.56} {y}" fill="none" stroke-width="7"/>'
+            + "".join(f'<line class="bridge" x1="{x0+w*(0.08+i*0.048)}" y1="{y}" x2="{x0+w*0.32}" y2="{y-70}" stroke-width="2"/>' for i in range(1, 10))
+            + f'<rect class="bridge" x="{x0+w*0.06}" y="{y}" width="{w*0.52}" height="6"/>')
 
 
 def ground(w, y, h):
     return f'<rect class="ground" y="{y}" width="{w}" height="{h}"/>'
 
 
+def guggenheim(x, y, s=1):
+    # Titanium curves of the Guggenheim on the riverbank, base at y
+    petals = [("ti1", "M0 0 C10 -60 60 -92 112 -72 C84 -44 72 -22 82 0 Z"),
+              ("ti3", "M150 -96 C158 -138 176 -150 190 -132 C182 -116 180 -104 178 -96 Z"),
+              ("ti2", "M60 0 C70 -82 130 -124 176 -102 C152 -64 150 -30 162 0 Z"),
+              ("ti1", "M132 0 C150 -72 204 -94 246 -62 C222 -42 220 -20 232 0 Z"),
+              ("ti3", "M196 0 C214 -40 262 -52 304 -30 L304 0 Z")]
+    seams = "".join(f'<path class="seam" d="M{a} 0 C{a+12} -{h} {a+40} -{h+18} {a+70} -{h+10}" fill="none"/>'
+                    for a, h in ((20, 40), (84, 60), (150, 40), (214, 22)))
+    return (f'<g transform="translate({x} {y}) scale({s})">'
+            '<rect class="o glass" x="30" y="-64" width="54" height="64"/>'
+            + "".join(f'<path class="o {c}" d="{d}"/>' for c, d in petals) + seams + "</g>")
+
+
+def puppy(x, y, s=1):
+    # Jeff Koons' Puppy: a sitting terrier covered in flowers
+    import math, random
+    rnd = random.Random(7)
+    head = (0, -178, 44)
+    def inside(px, py):
+        if (px - head[0]) ** 2 + (py - head[1]) ** 2 < head[2] ** 2: return True
+        if -150 < py < 0:
+            half = 34 + (py + 150) * 0.36
+            return abs(px) < half
+        return False
+    flowers = []
+    for _ in range(260):
+        px, py = rnd.uniform(-90, 90), rnd.uniform(-222, 0)
+        if inside(px, py):
+            flowers.append(f'<circle class="fl{rnd.randint(1, 5)}" cx="{px:.0f}" cy="{py:.0f}" r="{rnd.uniform(5, 9):.1f}"/>')
+    return (f'<g transform="translate({x} {y}) scale({s})">'
+            '<ellipse class="o puppy" cx="-40" cy="-196" rx="16" ry="30" transform="rotate(20 -40 -196)"/>'
+            '<ellipse class="o puppy" cx="40" cy="-196" rx="16" ry="30" transform="rotate(-20 40 -196)"/>'
+            '<path class="o puppy" d="M-34 -150 L34 -150 L88 0 L-88 0 Z"/><circle class="o puppy" cx="0" cy="-178" r="44"/>'
+            + "".join(flowers) + '<circle class="dark" cx="-14" cy="-182" r="4"/><circle class="dark" cx="14" cy="-182" r="4"/>'
+            '<ellipse class="dark" cx="0" cy="-164" rx="7" ry="5"/></g>')
+
+
+def salve(x, y, w):
+    # La Salve bridge with its red arches
+    arcs = "".join(f'<path class="salve" d="M{x+i*w/5} {y-40} q{w/10} -38 {w/5} 0" fill="none" stroke-width="7"/>' for i in range(5))
+    return f'<rect class="deck" x="{x}" y="{y-44}" width="{w}" height="10"/>' + arcs + "".join(
+        f'<rect class="deck" x="{x+i*w/4-6}" y="{y-36}" width="12" height="36"/>' for i in (1, 2, 3))
+
+
+def tower(x, y, h):
+    return f'<path class="o tower" d="M{x} {y} V{y-h+30} Q{x+24} {y-h} {x+48} {y-h+30} V{y} Z"/>' + "".join(
+        f'<line class="seam" x1="{x+6}" y1="{y-h+40+i*22}" x2="{x+42}" y2="{y-h+40+i*22}"/>' for i in range(int((h-50)/22)))
+
+
+def funicular(x, y):
+    return (f'<path class="track" d="M{x} {y} L{x+140} {y-90}" fill="none" stroke-width="4"/>'
+            f'<g transform="translate({x+70} {y-45}) rotate(-33)"><rect class="o fun" x="-18" y="-14" width="36" height="20" rx="4"/>'
+            '<rect class="glass" x="-12" y="-10" width="10" height="8"/><rect class="glass" x="2" y="-10" width="10" height="8"/></g>')
+
+
 SCENES = {
     "hero": svg("0 0 800 560", "Perros jugando junto a la ría / Dogs playing by the river",
-                hills(800, 560) + bridge(800, 330) + river(800, 330, 70) + ground(800, 400, 160)
+                hills(800, 560) + tower(700, 330, 210) + guggenheim(480, 330, 0.95) + bridge(800, 330) + river(800, 330, 70) + ground(800, 400, 160)
                 + dog(170, 500, 1.3, "fur1", "floppy") + dog(600, 490, 1.15, "fur3", "pointy", spot=False, flip=True, collar="collar2")
                 + dog(390, 540, 0.9, "fur4", "floppy", spot=False, collar="collar3") + ball(470, 470)),
     "about": svg("0 0 400 400", "Perro con su comida / Dog with its meal",
@@ -91,7 +147,7 @@ SCENES = {
                    '<rect class="wall" width="400" height="300"/><rect class="o door" x="250" y="60" width="100" height="190" rx="8"/>'
                    '<circle class="dark" cx="335" cy="160" r="5"/>' + ground(400, 250, 50) + dog(140, 270, 1.05, "fur3", "pointy", spot=False, collar="collar2")),
     "walk": svg("0 0 400 300", "Paseo por la ría / River walk",
-                hills(400, 300) + river(400, 190, 40) + ground(400, 230, 70) + dog(120, 270, 0.85, "fur1") + dog(290, 275, 0.8, "fur4", collar="collar3", spot=False)),
+                hills(400, 300) + funicular(230, 160) + salve(40, 205, 220) + river(400, 190, 40) + ground(400, 230, 70) + dog(120, 270, 0.85, "fur1") + dog(290, 275, 0.8, "fur4", collar="collar3", spot=False)),
     "nap": svg("0 0 400 300", "Comida y siesta / Lunch and nap",
                '<rect class="wall" width="400" height="300"/>' + ground(400, 220, 80)
                + '<ellipse class="o cushion" cx="180" cy="250" rx="130" ry="30"/>'
@@ -99,8 +155,12 @@ SCENES = {
                + '<text class="zzz" x="290" y="110">z</text><text class="zzz" x="315" y="80" font-size="36">z</text><text class="zzz" x="340" y="50" font-size="46">Z</text>'
                + '<path class="o bowl" d="M310 240 h60 l-8 24 h-44z"/>'),
     "play": svg("0 0 400 300", "Juego / Playtime",
-                hills(400, 300) + ground(400, 210, 90) + dog(110, 275, 0.85, "fur3", "pointy", spot=False, collar="collar2")
+                hills(400, 300) + guggenheim(150, 215, 0.6) + puppy(340, 220, 0.45) + ground(400, 210, 90) + dog(110, 275, 0.85, "fur3", "pointy", spot=False, collar="collar2")
                 + dog(300, 280, 0.9, "fur1", flip=True) + ball(205, 150, 16)),
     "polo": svg("0 0 400 400", "Polo", '<rect class="bg1" width="400" height="400"/>' + face(200, 190, 1.15, "fur1", "floppy", patch=True)),
     "daisy": svg("0 0 400 400", "Daisy", '<rect class="bg2" width="400" height="400"/>' + face(200, 195, 1.15, "fur3", "pointy", bow=True)),
+    "skyline": '<svg class="il skyline" viewBox="0 0 1200 220" role="img" aria-label="Bilbao: Guggenheim, Puppy, La Salve y Zubizuri" preserveAspectRatio="xMidYMax meet">'
+               + '<path class="hill2" d="M0 150 Q200 40 420 110 T820 80 T1200 110 V220 H0Z"/>' + funicular(40, 150)
+               + tower(230, 170, 160) + salve(300, 176, 200) + guggenheim(540, 172, 0.95) + bridge(300, 172, 800) + puppy(1100, 172, 0.62)
+               + river(1200, 170, 50) + '</svg>',
 }
