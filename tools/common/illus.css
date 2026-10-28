@@ -35,3 +35,4 @@
 .il .fl1{fill:#ff7fb5}.il .fl2{fill:#ffd93b}.il .fl3{fill:#b79cff}.il .fl4{fill:#fff}.il .fl5{fill:#ff8a3d}
 .il.skyline{height:auto;aspect-ratio:1200/220}
 .il .arch{fill:none}
+.il.photo{object-fit:cover;object-position:center}

@@ -164,3 +164,11 @@ SCENES = {
                + tower(230, 170, 160) + salve(300, 176, 200) + guggenheim(540, 172, 0.95) + bridge(300, 172, 800) + puppy(1100, 172, 0.62)
                + river(1200, 170, 50) + '</svg>',
 }
+
+# Real dog photos (Wikimedia Commons, CC0/CC BY; see tools/photos/CREDITS.md) replace the dog scenes.
+import base64, pathlib
+ALT = {"hero": "Perros jugando / Dogs playing", "about": "Perro paseando / Dog out for a walk", "arrival": "Llegada / Arrival",
+       "walk": "Paseo / Walk", "nap": "Siesta / Nap", "play": "Juego / Playtime", "polo": "Polo", "daisy": "Daisy"}
+for _n, _alt in ALT.items():
+    _b = base64.b64encode((pathlib.Path(__file__).parent / "photos" / f"{_n}.jpg").read_bytes()).decode()
+    SCENES[_n] = f'<img class="il photo" alt="{_alt}" src="data:image/jpeg;base64,{_b}">'
