@@ -2,7 +2,7 @@
 
 | Slot | File | License |
 |---|---|---|
-| hero | Dogs at Marymoor Park (3618931116).jpg | CC0 |
+| hero | Dogs playing 003.jpg | CC BY-SA 4.0 |
 | about | White dog walk in richmond (Unsplash).jpg | CC0 |
 | arrival | Long Haired Australian Cattle Dog.jpg | CC0 |
 | walk | Dog Walking in Cache Valley (51202415647).jpg | Public domain |
