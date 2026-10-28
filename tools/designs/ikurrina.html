@@ -1,0 +1,151 @@
+<title>Woof Bilbao Gorri</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Swiss grid in Basque red, green and white. Wide condensed-to-expanded Archivo, hard rules, flat colour blocks, square corners. */
+:root{
+  --bg:#fbfaf7; --ink:#101010; --red:#d52b1e; --green:#0a7a3d; --paper:#fff; --line:#101010; --muted:#555; --on-red:#fff;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e0e0e;--ink:#f4f1ea;--red:#ff4a3a;--green:#2fb86a;--paper:#1a1a1a;--line:#f4f1ea;--muted:#aaa;--on-red:#0e0e0e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e0e0e;--ink:#f4f1ea;--red:#ff4a3a;--green:#2fb86a;--paper:#1a1a1a;--line:#f4f1ea;--muted:#aaa;--on-red:#0e0e0e;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--display);font-size:17px;line-height:1.55}
+.wrap{max-width:1200px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;font-weight:900;font-stretch:112%;line-height:.98;text-transform:uppercase;letter-spacing:-.02em;text-wrap:balance}
+h2{font-size:clamp(2rem,5.6vw,4rem)}
+p{margin:0}
+:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+.mono{font:500 .75rem var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-block:16px;border-bottom:3px solid var(--line)}
+.brand{font-weight:900;font-stretch:125%;text-transform:uppercase;text-decoration:none;color:var(--ink);font-size:1.15rem;display:flex;align-items:center;gap:10px}
+.flag{display:inline-block;width:26px;height:18px;background:linear-gradient(var(--green),var(--green)) center/100% 3px no-repeat,linear-gradient(90deg,transparent 46%,var(--paper) 46% 54%,transparent 54%),linear-gradient(var(--red),var(--red));border:1.5px solid var(--line)}
+nav{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+nav a{color:var(--ink);text-decoration:none;font:500 .78rem var(--mono);letter-spacing:.08em;text-transform:uppercase}
+nav a:hover{color:var(--red)}
+.lang{display:inline-flex;border:2px solid var(--line)}
+.lang button{font:500 .78rem var(--mono);background:none;color:var(--ink);border:0;padding:5px 11px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hero{display:grid;grid-template-columns:7fr 5fr;border-bottom:3px solid var(--line)}
+.hero .l{padding:44px 32px 44px 0;display:flex;flex-direction:column;justify-content:space-between;gap:36px}
+.hero h1{font-size:clamp(2.7rem,7.6vw,6.2rem);font-stretch:118%}
+.hero .sub{font-size:1.2rem;max-width:38ch}
+.acts{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-block;font:800 .95rem var(--display);font-stretch:112%;text-transform:uppercase;letter-spacing:.02em;background:var(--red);color:var(--on-red);border:3px solid var(--line);padding:14px 26px;text-decoration:none;cursor:pointer;border-radius:0}
+.btn:hover{background:var(--ink);color:var(--bg)}
+.btn.ghost{background:none;color:var(--ink)}.btn.ghost:hover{background:var(--ink);color:var(--bg)}
+.ph{display:grid;place-items:center;text-align:center;min-height:180px;background:repeating-linear-gradient(90deg,transparent 0 11px,color-mix(in srgb,var(--ink) 14%,transparent) 11px 12px),var(--paper);color:var(--muted);font:500 .75rem var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:10px}
+.hero .ph{border-left:3px solid var(--line);min-height:380px;background-color:var(--red);color:var(--on-red);background-image:repeating-linear-gradient(90deg,transparent 0 11px,rgba(255,255,255,.18) 11px 12px)}
+section{padding-block:68px;border-bottom:3px solid var(--line)}
+.sec-head{display:grid;grid-template-columns:3fr 9fr;gap:32px;margin-bottom:44px}
+.sec-head .mono{padding-top:10px;color:var(--red)}
+.about{display:grid;grid-template-columns:3fr 9fr;gap:32px}
+.about .txt{display:grid;grid-template-columns:1fr 1fr;gap:32px;font-size:1.1rem}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);margin-top:56px;border:3px solid var(--line)}
+.pillar{padding:26px}
+.pillar+.pillar{border-left:3px solid var(--line)}
+.pillar:nth-child(1){background:var(--red);color:var(--on-red)}
+.pillar:nth-child(2){background:var(--paper)}
+.pillar:nth-child(3){background:var(--green);color:#fff}
+:root[data-theme="dark"] .pillar:nth-child(3){color:#0e0e0e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pillar:nth-child(3){color:#0e0e0e}}
+.pillar h3{font-size:1.5rem;margin-bottom:12px}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);border-top:3px solid var(--line)}
+.steps li{padding:22px 22px 0 0}
+.steps li+li{padding-left:22px;border-left:1.5px solid var(--line)}
+.steps .mono{color:var(--red);display:block;margin-bottom:12px}
+.steps h3{font-size:1.3rem;margin-bottom:8px}
+.dogs-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:3px solid var(--line)}
+.dog{display:grid;grid-template-columns:1fr}
+.dog+.dog{border-left:3px solid var(--line)}
+.dog .ph{aspect-ratio:1/1}
+.dog .info{padding:22px;border-top:3px solid var(--line)}
+.dog h3{font-size:3rem;font-stretch:125%}
+.dog p{margin-top:8px;max-width:36ch}
+.dog .mono{display:block;margin-top:14px;color:var(--muted)}
+.dog .tag{display:inline-block;background:var(--green);color:#fff;padding:2px 8px;margin-bottom:10px}
+.book{display:grid;grid-template-columns:3fr 9fr;gap:32px}
+.book .intro p{margin-top:14px;color:var(--muted);max-width:30ch}
+.form{display:grid;gap:30px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:16px;min-width:0}
+legend{font:800 1.1rem var(--display);font-stretch:118%;text-transform:uppercase;border-bottom:3px solid var(--line);width:100%;padding:0 0 8px;margin-bottom:8px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
+.field{display:grid;gap:6px;min-width:0}
+label,.lbl{font:500 .75rem var(--mono);letter-spacing:.08em;text-transform:uppercase}
+input,select,textarea{font:500 1rem var(--display);color:var(--ink);background:var(--paper);border:2px solid var(--line);border-radius:0;padding:11px 12px;width:100%;min-width:0}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--red);flex:none;margin-top:3px}
+input:focus,select:focus,textarea:focus{outline:3px solid var(--red);outline-offset:0}
+.checks{display:grid;gap:10px}
+.check{display:flex;gap:12px;align-items:flex-start;font:400 1rem var(--display);text-transform:none;letter-spacing:0}
+.days{display:flex;gap:0}
+.day input{position:absolute;opacity:0}
+label.day{position:relative;display:inline-grid;place-items:center;width:52px;height:48px;border:2px solid var(--line);margin-right:-2px;cursor:pointer;background:var(--paper);font-size:.9rem}
+label.day:has(input:checked){background:var(--ink);color:var(--bg)}
+label.day:has(input:focus-visible){outline:3px solid var(--red);outline-offset:2px;z-index:1}
+.error{background:var(--red);color:var(--on-red);padding:10px 14px;font-weight:700}
+.ok{border:3px solid var(--line);padding:28px}
+.ok h3{font-size:2.2rem}.ok p{margin:12px 0 18px}
+.ok dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0 0 24px}.ok dt{font:500 .75rem var(--mono);text-transform:uppercase;padding-top:4px;color:var(--muted)}.ok dd{margin:0;overflow-wrap:anywhere}
+footer{padding-block:26px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+@media (max-width:860px){
+  .hero,.about,.sec-head,.book{grid-template-columns:1fr}
+  .hero .l{padding-right:0}.hero .ph{border-left:0;border-top:3px solid var(--line);min-height:240px}
+  .about .txt{grid-template-columns:1fr}
+  .pillars,.dogs-grid{grid-template-columns:1fr}.pillar+.pillar,.dog+.dog{border-left:0;border-top:3px solid var(--line)}
+  .steps{grid-template-columns:1fr 1fr;row-gap:24px}.steps li:nth-child(3){padding-left:0;border-left:0}
+  section{padding-block:48px}.sec-head{gap:8px;margin-bottom:28px}
+}
+@media (max-width:480px){.steps{grid-template-columns:1fr}.steps li+li{padding-left:0;border-left:0;border-top:1.5px solid var(--line);padding-top:16px}}
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top"><span class="flag" aria-hidden="true"></span>Woof Bilbao</a>
+    <nav>
+      <a href="#about" data-i18n="nav_about"></a><a href="#day" data-i18n="nav_day"></a><a href="#dogs" data-i18n="nav_dogs"></a><a href="#book" data-i18n="nav_book"></a>
+      <div class="lang" role="group" aria-label="Idioma / Language"><button data-lang="es" aria-pressed="true">ES</button><button data-lang="en" aria-pressed="false">EN</button></div>
+    </nav>
+  </header>
+  <div class="hero" id="top">
+    <div class="l">
+      <div><p class="mono" data-i18n="hero_kicker" style="color:var(--red);margin-bottom:18px"></p><h1 data-i18n="hero_title"></h1></div>
+      <div><p class="sub" data-i18n="hero_sub"></p><div class="acts" style="margin-top:24px"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div></div>
+    </div>
+    <div class="ph"><span data-i18n="ph"></span></div>
+  </div>
+
+  <section id="about">
+    <div class="about"><p class="mono" data-i18n="nav_about" style="color:var(--red);padding-top:10px"></p>
+      <div><h2 data-i18n="about_title" style="margin-bottom:30px"></h2><div class="txt"><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div></div></div>
+    <div class="pillars">
+      <div class="pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
+      <div class="pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
+      <div class="pillar"><h3 data-i18n="p3_t"></h3><p data-i18n="p3_d"></p></div>
+    </div>
+  </section>
+
+  <section id="day">
+    <div class="sec-head"><p class="mono" data-i18n="nav_day"></p><h2 data-i18n="day_title"></h2></div>
+    <ol class="steps">
+      <li><span class="mono">01</span><h3 data-i18n="d1_t"></h3><p data-i18n="d1_d"></p></li>
+      <li><span class="mono">02</span><h3 data-i18n="d2_t"></h3><p data-i18n="d2_d"></p></li>
+      <li><span class="mono">03</span><h3 data-i18n="d3_t"></h3><p data-i18n="d3_d"></p></li>
+      <li><span class="mono">04</span><h3 data-i18n="d4_t"></h3><p data-i18n="d4_d"></p></li>
+    </ol>
+  </section>
+
+  <section id="dogs">
+    <div class="sec-head"><p class="mono" data-i18n="nav_dogs"></p><div><h2 data-i18n="dogs_title"></h2><p data-i18n="dogs_intro" style="margin-top:14px;max-width:46ch"></p></div></div>
+    <div class="dogs-grid">
+      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><div class="info"><span class="tag mono" data-i18n="nav_dogs"></span><h3>Polo</h3><p data-i18n="polo_d"></p><span class="mono" data-i18n="dog_note"></span></div></div>
+      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><div class="info"><span class="tag mono" data-i18n="nav_dogs"></span><h3>Daisy</h3><p data-i18n="daisy_d"></p><span class="mono" data-i18n="dog_note"></span></div></div>
+    </div>
+  </section>
+
+  <section id="book" style="border-bottom:0">
+    <div class="book"><div class="intro"><h2 data-i18n="book_title"></h2><p data-i18n="book_intro"></p></div><div>{{FORM}}</div></div>
+  </section>
+  <footer class="mono" style="border-top:3px solid var(--line)"><span>Woof Bilbao · <span data-i18n="foot"></span></span><span data-i18n="foot_note"></span></footer>
+</div>
+{{SCRIPT}}

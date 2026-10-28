@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woof Bilbao Patas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;800&display=swap">
+<style>
+/* Layout: playful sticker sheet. Chunky outlines, hard offset shadows, tilted labels, centered hero, yellow ground. */
+:root{
+  --bg:#ffe27a; --surface:#fffaf0; --ink:#1d1b3a; --pop:#ff5a36; --pop-ink:#fff; --mint:#8fe3cf; --sky:#a9c8ff; --shadow:#1d1b3a;
+  --display:"Bagel Fat One","Arial Rounded MT Bold",Arial,sans-serif; --body:"Nunito",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1b3a;--surface:#2a2753;--ink:#fff3c4;--pop:#ff7a58;--pop-ink:#1d1b3a;--mint:#3e9c88;--sky:#5576b8;--shadow:#000;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1d1b3a;--surface:#2a2753;--ink:#fff3c4;--pop:#ff7a58;--pop-ink:#1d1b3a;--mint:#3e9c88;--sky:#5576b8;--shadow:#000;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:18px;line-height:1.55;font-weight:600}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.05;margin:0;text-wrap:balance}
+h2{font-size:clamp(2.2rem,6vw,3.6rem)}
+p{margin:0}
+:focus-visible{outline:4px solid var(--pop);outline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-block:18px}
+.brand{font-family:var(--display);font-size:1.6rem;text-decoration:none;color:var(--ink)}
+nav{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+nav a{color:var(--ink);text-decoration:none;font-weight:800;padding:6px 12px;border-radius:99px}
+nav a:hover{background:var(--surface)}
+.lang{display:inline-flex;gap:4px}
+.lang button{font:800 .85rem var(--body);color:var(--ink);background:var(--surface);border:3px solid var(--ink);border-radius:99px;padding:4px 12px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hero{text-align:center;padding-block:36px 72px;position:relative}
+.sticker{display:inline-block;background:var(--mint);color:var(--ink);border:3px solid var(--ink);border-radius:99px;padding:6px 18px;font-weight:800;transform:rotate(-3deg);box-shadow:4px 4px 0 var(--shadow)}
+.hero h1{font-size:clamp(2.8rem,9vw,6.4rem);margin:26px auto 18px;max-width:14ch}
+.hero h1 em{font-style:normal;color:var(--pop);display:inline-block;transform:rotate(-2deg)}
+.hero .sub{max-width:36ch;margin:0 auto;font-size:1.25rem}
+.acts{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+.btn{display:inline-block;font:800 1.05rem var(--body);background:var(--pop);color:var(--pop-ink);border:3px solid var(--ink);border-radius:99px;padding:14px 30px;text-decoration:none;box-shadow:5px 5px 0 var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--shadow)}
+.btn.ghost{background:var(--surface);color:var(--ink)}
+.ph{display:grid;place-items:center;text-align:center;min-height:180px;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--sky) 55%,transparent) 0 12px,transparent 12px 24px),var(--surface);border:3px solid var(--ink);border-radius:28px;color:var(--ink);font-weight:800;font-size:.9rem;padding:10px;box-shadow:6px 6px 0 var(--shadow)}
+.hero .ph{max-width:760px;margin:56px auto 0;aspect-ratio:16/8;transform:rotate(-1deg)}
+.blob{background:var(--surface);border:3px solid var(--ink);border-radius:32px;box-shadow:7px 7px 0 var(--shadow);padding:34px}
+section{padding-block:56px}
+.about{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
+.about p+p{margin-top:14px}
+.about h2{margin-bottom:20px}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:44px}
+.pillar{border:3px solid var(--ink);border-radius:28px;padding:26px;box-shadow:6px 6px 0 var(--shadow)}
+.pillar:nth-child(1){background:var(--mint);transform:rotate(-1.2deg)}
+.pillar:nth-child(2){background:var(--sky);transform:rotate(.8deg)}
+.pillar:nth-child(3){background:var(--surface);transform:rotate(-.6deg)}
+.pillar h3{font-size:1.6rem;margin-bottom:8px}
+:root[data-theme="dark"] .pillar{color:var(--ink)}
+.day-title{text-align:center;margin-bottom:36px}
+.path{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.stop{background:var(--surface);border:3px solid var(--ink);border-radius:28px;padding:22px;box-shadow:5px 5px 0 var(--shadow);position:relative}
+.stop::before{content:"";position:absolute;top:-14px;left:22px;width:24px;height:24px;border-radius:50%;background:var(--pop);border:3px solid var(--ink)}
+.stop h3{font-size:1.35rem;margin:6px 0}
+.stop p{font-size:.98rem}
+.dogs{text-align:center}
+.dogs .intro{max-width:44ch;margin:14px auto 0}
+.dogs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:34px;margin-top:44px;text-align:left}
+.dog .ph{aspect-ratio:1/1;border-radius:50% 50% 28px 28px}
+.dog:nth-child(1) .ph{transform:rotate(-2deg)}.dog:nth-child(2) .ph{transform:rotate(2deg)}
+.dog h3{font-size:2.6rem;margin-top:22px;color:var(--pop)}
+.dog small{display:inline-block;margin-top:8px;font-weight:800;opacity:.7}
+.book-head{text-align:center;margin-bottom:30px}.book-head p{max-width:46ch;margin:14px auto 0}
+.form{display:grid;gap:28px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:16px;min-width:0}
+legend{font-family:var(--display);font-size:1.5rem;color:var(--pop);margin-bottom:6px;padding:0}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
+.field{display:grid;gap:6px;min-width:0}
+label,.lbl{font-weight:800;font-size:.95rem}
+input,select,textarea{font:600 1rem var(--body);color:var(--ink);background:var(--bg);border:3px solid var(--ink);border-radius:16px;padding:11px 14px;width:100%;min-width:0}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--pop);flex:none}
+input:focus,select:focus,textarea:focus{outline:4px solid var(--pop);outline-offset:1px}
+.checks{display:grid;gap:10px}
+.check{display:flex;gap:12px;align-items:flex-start;font-weight:600}
+.days{display:flex;gap:10px;flex-wrap:wrap}
+.day input{position:absolute;opacity:0}
+label.day{position:relative;display:inline-grid;place-items:center;width:50px;height:50px;border:3px solid var(--ink);border-radius:50%;cursor:pointer;background:var(--bg);font-family:var(--display);font-weight:400;font-size:1.1rem}
+label.day:has(input:checked){background:var(--pop);color:var(--pop-ink);box-shadow:3px 3px 0 var(--shadow)}
+label.day:has(input:focus-visible){outline:4px solid var(--ink);outline-offset:2px}
+.error{background:var(--pop);color:var(--pop-ink);border-radius:16px;padding:10px 16px;font-weight:800}
+.ok h3{font-size:2.2rem;color:var(--pop)}.ok p{margin:10px 0 18px}
+.ok dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0 0 24px}.ok dt{font-weight:800}.ok dd{margin:0;overflow-wrap:anywhere}
+footer{padding-block:30px;text-align:center;font-weight:800}
+@media (max-width:860px){
+  .about,.pillars,.dogs-grid{grid-template-columns:1fr}
+  .path{grid-template-columns:1fr 1fr}
+  .hero .ph{aspect-ratio:16/10}.blob{padding:22px}
+}
+@media (max-width:480px){.path{grid-template-columns:1fr}.pillar{transform:none!important}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top">Woof Bilbao</a>
+    <nav>
+      <a href="#about" data-i18n="nav_about"></a><a href="#day" data-i18n="nav_day"></a><a href="#dogs" data-i18n="nav_dogs"></a><a href="#book" data-i18n="nav_book"></a>
+      <div class="lang" role="group" aria-label="Idioma / Language"><button data-lang="es" aria-pressed="true">ES</button><button data-lang="en" aria-pressed="false">EN</button></div>
+    </nav>
+  </header>
+  <div class="hero" id="top">
+    <span class="sticker" data-i18n="hero_kicker"></span>
+    <h1 data-i18n="hero_title"></h1>
+    <p class="sub" data-i18n="hero_sub"></p>
+    <div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div>
+    <div class="ph"><span data-i18n="ph"></span></div>
+  </div>
+
+  <section id="about">
+    <div class="about"><div class="blob"><h2 data-i18n="about_title"></h2><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div>
+    <div class="ph" style="aspect-ratio:1/1;transform:rotate(2deg)"><span data-i18n="ph"></span></div></div>
+    <div class="pillars">
+      <div class="pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
+      <div class="pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
+      <div class="pillar"><h3 data-i18n="p3_t"></h3><p data-i18n="p3_d"></p></div>
+    </div>
+  </section>
+
+  <section id="day">
+    <h2 class="day-title" data-i18n="day_title"></h2>
+    <div class="path">
+      <div class="stop"><h3 data-i18n="d1_t"></h3><p data-i18n="d1_d"></p></div>
+      <div class="stop"><h3 data-i18n="d2_t"></h3><p data-i18n="d2_d"></p></div>
+      <div class="stop"><h3 data-i18n="d3_t"></h3><p data-i18n="d3_d"></p></div>
+      <div class="stop"><h3 data-i18n="d4_t"></h3><p data-i18n="d4_d"></p></div>
+    </div>
+  </section>
+
+  <section id="dogs" class="dogs">
+    <h2 data-i18n="dogs_title"></h2><p class="intro" data-i18n="dogs_intro"></p>
+    <div class="dogs-grid">
+      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div>
+      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div>
+    </div>
+  </section>
+
+  <section id="book">
+    <div class="book-head"><h2 data-i18n="book_title"></h2><p data-i18n="book_intro"></p></div>
+    <div class="blob" style="max-width:760px;margin:0 auto"><form id="booking" class="form" novalidate>
+  <fieldset><legend data-i18n="f_owner"></legend>
+    <div class="field"><label for="f-name" data-i18n="f_name"></label><input id="f-name" name="name" autocomplete="name" required></div>
+    <div class="row">
+      <div class="field"><label for="f-email" data-i18n="f_email"></label><input id="f-email" name="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="f-phone" data-i18n="f_phone"></label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+    </div>
+  </fieldset>
+  <fieldset><legend data-i18n="f_dog"></legend>
+    <div class="row">
+      <div class="field"><label for="f-dogname" data-i18n="f_dogname"></label><input id="f-dogname" name="dogname" required></div>
+      <div class="field"><label for="f-breed" data-i18n="f_breed"></label><input id="f-breed" name="breed" data-i18n-ph="f_breed_ph"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="f-age" data-i18n="f_age"></label><input id="f-age" name="age" data-i18n-ph="f_age_ph" required></div>
+      <div class="field"><label for="f-size" data-i18n="f_size"></label>
+        <select id="f-size" name="size" required><option value="" data-i18n="s_pick"></option><option value="s" data-i18n="s_s"></option><option value="m" data-i18n="s_m"></option><option value="l" data-i18n="s_l"></option></select></div>
+      <div class="field"><label for="f-sex" data-i18n="f_sex"></label>
+        <select id="f-sex" name="sex"><option value="" data-i18n="s_pick"></option><option value="m" data-i18n="sx_m"></option><option value="f" data-i18n="sx_f"></option></select></div>
+    </div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" name="neutered"><span data-i18n="f_neutered"></span></label>
+      <label class="check"><input type="checkbox" name="vacc" required><span data-i18n="f_vacc"></span></label>
+    </div>
+    <div class="field"><label for="f-med" data-i18n="f_med"></label><textarea id="f-med" name="med" rows="3" data-i18n-ph="f_med_ph"></textarea></div>
+    <div class="field"><label for="f-pref" data-i18n="f_pref"></label><textarea id="f-pref" name="pref" rows="3" data-i18n-ph="f_pref_ph"></textarea></div>
+  </fieldset>
+  <fieldset><legend data-i18n="f_dates"></legend>
+    <div class="row">
+      <div class="field"><label for="f-from" data-i18n="f_from"></label><input id="f-from" name="from" type="date" required></div>
+      <div class="field"><label for="f-to" data-i18n="f_to"></label><input id="f-to" name="to" type="date" required></div>
+    </div>
+    <div class="field"><span class="lbl" data-i18n="f_days"></span>
+      <div class="days">
+        <label class="day"><input type="checkbox" name="d1" checked><span data-i18n="dw1"></span></label>
+        <label class="day"><input type="checkbox" name="d2" checked><span data-i18n="dw2"></span></label>
+        <label class="day"><input type="checkbox" name="d3" checked><span data-i18n="dw3"></span></label>
+        <label class="day"><input type="checkbox" name="d4" checked><span data-i18n="dw4"></span></label>
+        <label class="day"><input type="checkbox" name="d5" checked><span data-i18n="dw5"></span></label>
+      </div></div>
+    <div class="field"><label for="f-notes" data-i18n="f_notes"></label><textarea id="f-notes" name="notes" rows="2"></textarea></div>
+  </fieldset>
+  <label class="check"><input type="checkbox" name="consent" required><span data-i18n="f_consent"></span></label>
+  <p id="form-error" class="error" role="alert" hidden></p>
+  <button class="btn" type="submit" data-i18n="f_submit"></button>
+</form>
+<div id="form-ok" class="ok" hidden>
+  <h3 data-i18n="ok_title"></h3><p data-i18n="ok_text"></p><dl></dl>
+  <button id="form-edit" class="btn ghost" type="button" data-i18n="ok_again"></button>
+</div>
+</div>
+  </section>
+  <footer><span>Woof Bilbao · <span data-i18n="foot"></span></span> · <span data-i18n="foot_note"></span></footer>
+</div>
+<script>
+(function () {
+  var T = {
+    es: {
+      brand: "Woof Bilbao", tag: "Guardería canina de día",
+      nav_about: "El lugar", nav_day: "Un día aquí", nav_dogs: "Residentes", nav_book: "Reservar",
+      hero_kicker: "Guardería canina en Bilbao",
+      hero_title: "Tu perro, bien cuidado mientras tú trabajas",
+      hero_sub: "Pasa el día con nosotros: paseos junto a la ría, comida a su hora y mucho juego con otros perros.",
+      cta: "Reservar plaza", cta2: "Cómo es un día",
+      ph: "Foto próximamente",
+      about_title: "Un sitio para que tu perro no se quede solo",
+      about_p1: "Woof Bilbao cuida de tu perro durante el día mientras tú estás en el trabajo. Llega por la mañana y vuelve a casa por la tarde cansado, contento y con ganas de dormir.",
+      about_p2: "Somos un grupo pequeño, así que cada perro recibe atención. Conocemos sus costumbres, sus miedos y lo que le gusta comer, y lo tenemos en cuenta cada día.",
+      p1_t: "Paseos junto a la ría", p1_d: "Salimos cada día a pasear por la orilla del Nervión, a su ritmo y con todo el grupo.",
+      p2_t: "Comida a su hora", p2_d: "Respetamos la dieta de cada perro. Tú nos dices qué come y cuándo, y nosotros lo cumplimos.",
+      p3_t: "Juego de verdad", p3_d: "Juegan con nuestros perros residentes y con el resto de compañeros, con descansos para recuperar energía.",
+      day_title: "Así es un día en Woof",
+      d1_t: "Llegada", d1_d: "Saludos, olisqueos y presentación al grupo. Tú te vas tranquilo.",
+      d2_t: "Paseo por la ría", d2_d: "Caminata en grupo por la orilla, con tiempo para explorar.",
+      d3_t: "Comida y siesta", d3_d: "Cada uno come lo suyo y después toca descansar.",
+      d4_t: "Juego", d4_d: "Juego libre con Polo, Daisy y los demás hasta la hora de recogida.",
+      dogs_title: "Los residentes", dogs_intro: "Polo y Daisy viven aquí. Reciben a cada perro nuevo y le enseñan la casa.",
+      polo_d: "Anfitrión de la casa. Es el primero en la puerta y el último en cansarse.",
+      daisy_d: "Organiza los juegos y vigila que nadie se quede fuera del grupo.",
+      dog_note: "Descripción y foto provisionales",
+      book_title: "Reserva una plaza", book_intro: "Cuéntanos quién es tu perro y para qué fechas necesitas plaza. Te responderemos para confirmar.",
+      f_owner: "Tus datos", f_dog: "Tu perro", f_dates: "Fechas",
+      f_name: "Nombre y apellidos", f_email: "Correo electrónico", f_phone: "Teléfono",
+      f_dogname: "Nombre del perro", f_breed: "Raza (si la hay)", f_breed_ph: "Mestizo, labrador…",
+      f_age: "Edad", f_age_ph: "Ej. 3 años", f_size: "Tamaño",
+      s_pick: "Elige…", s_s: "Pequeño (hasta 10 kg)", s_m: "Mediano (10 a 25 kg)", s_l: "Grande (más de 25 kg)",
+      f_sex: "Sexo", sx_m: "Macho", sx_f: "Hembra",
+      f_neutered: "Esterilizado/a", f_vacc: "Vacunas y desparasitación al día",
+      f_med: "Condiciones médicas o alergias", f_med_ph: "Medicación, alergias, operaciones recientes…",
+      f_pref: "Preferencias y carácter", f_pref_ph: "Comida, miedos, cómo juega con otros perros…",
+      f_from: "Desde", f_to: "Hasta", f_days: "Días de la semana",
+      dw1: "L", dw2: "M", dw3: "X", dw4: "J", dw5: "V",
+      f_notes: "Algo más que quieras contarnos",
+      f_consent: "Acepto que usen estos datos para gestionar mi reserva",
+      f_submit: "Enviar solicitud",
+      err_req: "Completa los campos obligatorios.", err_dates: "La fecha final no puede ser anterior a la inicial.",
+      ok_title: "Solicitud preparada", ok_text: "Este formulario es una maqueta y todavía no envía datos. Resumen de lo que has indicado:",
+      ok_again: "Editar solicitud",
+      foot: "Bilbao, Bizkaia", foot_note: "Diseño provisional"
+    },
+    en: {
+      brand: "Woof Bilbao", tag: "Doggy daycare",
+      nav_about: "The place", nav_day: "A day here", nav_dogs: "Residents", nav_book: "Book",
+      hero_kicker: "Dog daycare in Bilbao",
+      hero_title: "Your dog, well looked after while you work",
+      hero_sub: "Spend the day with us: walks along the river, meals on time and plenty of play with other dogs.",
+      cta: "Book a spot", cta2: "See a typical day",
+      ph: "Photo coming soon",
+      about_title: "A place where your dog is never left alone",
+      about_p1: "Woof Bilbao looks after your dog during the day while you are at work. They arrive in the morning and go home in the evening tired, happy and ready to sleep.",
+      about_p2: "We keep the group small, so every dog gets attention. We learn their habits, their fears and what they like to eat, and we remember them every day.",
+      p1_t: "Walks along the river", p1_d: "Every day we walk the banks of the Nervión at their pace, with the whole group.",
+      p2_t: "Meals on time", p2_d: "We follow each dog's diet. You tell us what they eat and when, and we stick to it.",
+      p3_t: "Real play", p3_d: "They play with our resident dogs and the other guests, with breaks to recharge.",
+      day_title: "A day at Woof",
+      d1_t: "Arrival", d1_d: "Greetings, sniffing and an introduction to the group. You leave without worry.",
+      d2_t: "River walk", d2_d: "A group walk along the riverbank, with time to explore.",
+      d3_t: "Lunch and nap", d3_d: "Everyone eats their own meal, then it is time to rest.",
+      d4_t: "Playtime", d4_d: "Free play with Polo, Daisy and the others until pick-up.",
+      dogs_title: "Our residents", dogs_intro: "Polo and Daisy live here. They greet every new dog and show them around.",
+      polo_d: "The host of the house. First at the door and last to get tired.",
+      daisy_d: "Organises the games and makes sure nobody is left out of the group.",
+      dog_note: "Provisional description and photo",
+      book_title: "Book a spot", book_intro: "Tell us about your dog and which dates you need. We will get back to you to confirm.",
+      f_owner: "Your details", f_dog: "Your dog", f_dates: "Dates",
+      f_name: "Full name", f_email: "Email", f_phone: "Phone",
+      f_dogname: "Dog's name", f_breed: "Breed (if any)", f_breed_ph: "Mixed, Labrador…",
+      f_age: "Age", f_age_ph: "E.g. 3 years", f_size: "Size",
+      s_pick: "Choose…", s_s: "Small (up to 10 kg)", s_m: "Medium (10 to 25 kg)", s_l: "Large (over 25 kg)",
+      f_sex: "Sex", sx_m: "Male", sx_f: "Female",
+      f_neutered: "Neutered / spayed", f_vacc: "Vaccinations and deworming up to date",
+      f_med: "Medical conditions or allergies", f_med_ph: "Medication, allergies, recent surgery…",
+      f_pref: "Preferences and personality", f_pref_ph: "Food, fears, how they play with other dogs…",
+      f_from: "From", f_to: "To", f_days: "Days of the week",
+      dw1: "M", dw2: "T", dw3: "W", dw4: "T", dw5: "F",
+      f_notes: "Anything else you want to tell us",
+      f_consent: "I agree to my data being used to manage my booking",
+      f_submit: "Send request",
+      err_req: "Please fill in the required fields.", err_dates: "The end date cannot be before the start date.",
+      ok_title: "Request ready", ok_text: "This form is a mock-up and does not send data yet. Summary of what you entered:",
+      ok_again: "Edit request",
+      foot: "Bilbao, Biscay", foot_note: "Draft design"
+    }
+  };
+  var lang = "es";
+  try { var s = localStorage.getItem("woof-lang"); if (s === "es" || s === "en") lang = s; else if ((navigator.language || "").slice(0, 2) === "en") lang = "en"; } catch (e) {}
+  function t(k) { return T[lang][k] || k; }
+  function apply() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(function (el) { el.placeholder = t(el.getAttribute("data-i18n-ph")); });
+    document.querySelectorAll("[data-lang]").forEach(function (b) { var on = b.getAttribute("data-lang") === lang; b.setAttribute("aria-pressed", on); });
+    var err = document.getElementById("form-error"); if (err && err.dataset.key) err.textContent = t(err.dataset.key);
+    if (window.woofRenderSummary) window.woofRenderSummary();
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-lang]"); if (!b) return;
+    lang = b.getAttribute("data-lang"); try { localStorage.setItem("woof-lang", lang); } catch (x) {}
+    apply();
+  });
+  var form = document.getElementById("booking");
+  var today = new Date().toISOString().slice(0, 10);
+  if (form) {
+    form.elements.from.min = today; form.elements.to.min = today;
+    var err = document.getElementById("form-error"), ok = document.getElementById("form-ok");
+    function fail(k) { err.dataset.key = k; err.textContent = t(k); err.hidden = false; }
+    window.woofRenderSummary = function () {
+      if (ok.hidden) return;
+      var d = new FormData(form), rows = [["f_name", "name"], ["f_email", "email"], ["f_phone", "phone"], ["f_dogname", "dogname"], ["f_breed", "breed"], ["f_age", "age"], ["f_from", "from"], ["f_to", "to"]];
+      var h = rows.filter(function (r) { return d.get(r[1]); }).map(function (r) { return "<dt>" + t(r[0]) + "</dt><dd></dd>"; }).join("");
+      var dl = ok.querySelector("dl"); dl.innerHTML = h;
+      var dds = dl.querySelectorAll("dd"), i = 0;
+      rows.forEach(function (r) { if (d.get(r[1])) dds[i++].textContent = d.get(r[1]); });
+    };
+    form.addEventListener("submit", function (e) {
+      e.preventDefault(); err.hidden = true; err.dataset.key = "";
+      if (!form.checkValidity()) { fail("err_req"); form.reportValidity(); return; }
+      if (form.elements.to.value < form.elements.from.value) { fail("err_dates"); return; }
+      form.hidden = true; ok.hidden = false; window.woofRenderSummary();
+      ok.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    document.getElementById("form-edit").addEventListener("click", function () { ok.hidden = true; form.hidden = false; });
+  }
+  apply();
+})();
+</script>
+</body>
+</html>

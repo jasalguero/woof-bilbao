@@ -1,0 +1,144 @@
+<title>Woof Bilbao Patas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;800&display=swap">
+<style>
+/* Layout: playful sticker sheet. Chunky outlines, hard offset shadows, tilted labels, centered hero, yellow ground. */
+:root{
+  --bg:#ffe27a; --surface:#fffaf0; --ink:#1d1b3a; --pop:#ff5a36; --pop-ink:#fff; --mint:#8fe3cf; --sky:#a9c8ff; --shadow:#1d1b3a;
+  --display:"Bagel Fat One","Arial Rounded MT Bold",Arial,sans-serif; --body:"Nunito",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1b3a;--surface:#2a2753;--ink:#fff3c4;--pop:#ff7a58;--pop-ink:#1d1b3a;--mint:#3e9c88;--sky:#5576b8;--shadow:#000;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1d1b3a;--surface:#2a2753;--ink:#fff3c4;--pop:#ff7a58;--pop-ink:#1d1b3a;--mint:#3e9c88;--sky:#5576b8;--shadow:#000;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:18px;line-height:1.55;font-weight:600}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.05;margin:0;text-wrap:balance}
+h2{font-size:clamp(2.2rem,6vw,3.6rem)}
+p{margin:0}
+:focus-visible{outline:4px solid var(--pop);outline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-block:18px}
+.brand{font-family:var(--display);font-size:1.6rem;text-decoration:none;color:var(--ink)}
+nav{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+nav a{color:var(--ink);text-decoration:none;font-weight:800;padding:6px 12px;border-radius:99px}
+nav a:hover{background:var(--surface)}
+.lang{display:inline-flex;gap:4px}
+.lang button{font:800 .85rem var(--body);color:var(--ink);background:var(--surface);border:3px solid var(--ink);border-radius:99px;padding:4px 12px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hero{text-align:center;padding-block:36px 72px;position:relative}
+.sticker{display:inline-block;background:var(--mint);color:var(--ink);border:3px solid var(--ink);border-radius:99px;padding:6px 18px;font-weight:800;transform:rotate(-3deg);box-shadow:4px 4px 0 var(--shadow)}
+.hero h1{font-size:clamp(2.8rem,9vw,6.4rem);margin:26px auto 18px;max-width:14ch}
+.hero h1 em{font-style:normal;color:var(--pop);display:inline-block;transform:rotate(-2deg)}
+.hero .sub{max-width:36ch;margin:0 auto;font-size:1.25rem}
+.acts{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+.btn{display:inline-block;font:800 1.05rem var(--body);background:var(--pop);color:var(--pop-ink);border:3px solid var(--ink);border-radius:99px;padding:14px 30px;text-decoration:none;box-shadow:5px 5px 0 var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--shadow)}
+.btn.ghost{background:var(--surface);color:var(--ink)}
+.ph{display:grid;place-items:center;text-align:center;min-height:180px;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--sky) 55%,transparent) 0 12px,transparent 12px 24px),var(--surface);border:3px solid var(--ink);border-radius:28px;color:var(--ink);font-weight:800;font-size:.9rem;padding:10px;box-shadow:6px 6px 0 var(--shadow)}
+.hero .ph{max-width:760px;margin:56px auto 0;aspect-ratio:16/8;transform:rotate(-1deg)}
+.blob{background:var(--surface);border:3px solid var(--ink);border-radius:32px;box-shadow:7px 7px 0 var(--shadow);padding:34px}
+section{padding-block:56px}
+.about{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
+.about p+p{margin-top:14px}
+.about h2{margin-bottom:20px}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:44px}
+.pillar{border:3px solid var(--ink);border-radius:28px;padding:26px;box-shadow:6px 6px 0 var(--shadow)}
+.pillar:nth-child(1){background:var(--mint);transform:rotate(-1.2deg)}
+.pillar:nth-child(2){background:var(--sky);transform:rotate(.8deg)}
+.pillar:nth-child(3){background:var(--surface);transform:rotate(-.6deg)}
+.pillar h3{font-size:1.6rem;margin-bottom:8px}
+:root[data-theme="dark"] .pillar{color:var(--ink)}
+.day-title{text-align:center;margin-bottom:36px}
+.path{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.stop{background:var(--surface);border:3px solid var(--ink);border-radius:28px;padding:22px;box-shadow:5px 5px 0 var(--shadow);position:relative}
+.stop::before{content:"";position:absolute;top:-14px;left:22px;width:24px;height:24px;border-radius:50%;background:var(--pop);border:3px solid var(--ink)}
+.stop h3{font-size:1.35rem;margin:6px 0}
+.stop p{font-size:.98rem}
+.dogs{text-align:center}
+.dogs .intro{max-width:44ch;margin:14px auto 0}
+.dogs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:34px;margin-top:44px;text-align:left}
+.dog .ph{aspect-ratio:1/1;border-radius:50% 50% 28px 28px}
+.dog:nth-child(1) .ph{transform:rotate(-2deg)}.dog:nth-child(2) .ph{transform:rotate(2deg)}
+.dog h3{font-size:2.6rem;margin-top:22px;color:var(--pop)}
+.dog small{display:inline-block;margin-top:8px;font-weight:800;opacity:.7}
+.book-head{text-align:center;margin-bottom:30px}.book-head p{max-width:46ch;margin:14px auto 0}
+.form{display:grid;gap:28px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:16px;min-width:0}
+legend{font-family:var(--display);font-size:1.5rem;color:var(--pop);margin-bottom:6px;padding:0}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px}
+.field{display:grid;gap:6px;min-width:0}
+label,.lbl{font-weight:800;font-size:.95rem}
+input,select,textarea{font:600 1rem var(--body);color:var(--ink);background:var(--bg);border:3px solid var(--ink);border-radius:16px;padding:11px 14px;width:100%;min-width:0}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--pop);flex:none}
+input:focus,select:focus,textarea:focus{outline:4px solid var(--pop);outline-offset:1px}
+.checks{display:grid;gap:10px}
+.check{display:flex;gap:12px;align-items:flex-start;font-weight:600}
+.days{display:flex;gap:10px;flex-wrap:wrap}
+.day input{position:absolute;opacity:0}
+label.day{position:relative;display:inline-grid;place-items:center;width:50px;height:50px;border:3px solid var(--ink);border-radius:50%;cursor:pointer;background:var(--bg);font-family:var(--display);font-weight:400;font-size:1.1rem}
+label.day:has(input:checked){background:var(--pop);color:var(--pop-ink);box-shadow:3px 3px 0 var(--shadow)}
+label.day:has(input:focus-visible){outline:4px solid var(--ink);outline-offset:2px}
+.error{background:var(--pop);color:var(--pop-ink);border-radius:16px;padding:10px 16px;font-weight:800}
+.ok h3{font-size:2.2rem;color:var(--pop)}.ok p{margin:10px 0 18px}
+.ok dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0 0 24px}.ok dt{font-weight:800}.ok dd{margin:0;overflow-wrap:anywhere}
+footer{padding-block:30px;text-align:center;font-weight:800}
+@media (max-width:860px){
+  .about,.pillars,.dogs-grid{grid-template-columns:1fr}
+  .path{grid-template-columns:1fr 1fr}
+  .hero .ph{aspect-ratio:16/10}.blob{padding:22px}
+}
+@media (max-width:480px){.path{grid-template-columns:1fr}.pillar{transform:none!important}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top">Woof Bilbao</a>
+    <nav>
+      <a href="#about" data-i18n="nav_about"></a><a href="#day" data-i18n="nav_day"></a><a href="#dogs" data-i18n="nav_dogs"></a><a href="#book" data-i18n="nav_book"></a>
+      <div class="lang" role="group" aria-label="Idioma / Language"><button data-lang="es" aria-pressed="true">ES</button><button data-lang="en" aria-pressed="false">EN</button></div>
+    </nav>
+  </header>
+  <div class="hero" id="top">
+    <span class="sticker" data-i18n="hero_kicker"></span>
+    <h1 data-i18n="hero_title"></h1>
+    <p class="sub" data-i18n="hero_sub"></p>
+    <div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div>
+    <div class="ph"><span data-i18n="ph"></span></div>
+  </div>
+
+  <section id="about">
+    <div class="about"><div class="blob"><h2 data-i18n="about_title"></h2><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div>
+    <div class="ph" style="aspect-ratio:1/1;transform:rotate(2deg)"><span data-i18n="ph"></span></div></div>
+    <div class="pillars">
+      <div class="pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
+      <div class="pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
+      <div class="pillar"><h3 data-i18n="p3_t"></h3><p data-i18n="p3_d"></p></div>
+    </div>
+  </section>
+
+  <section id="day">
+    <h2 class="day-title" data-i18n="day_title"></h2>
+    <div class="path">
+      <div class="stop"><h3 data-i18n="d1_t"></h3><p data-i18n="d1_d"></p></div>
+      <div class="stop"><h3 data-i18n="d2_t"></h3><p data-i18n="d2_d"></p></div>
+      <div class="stop"><h3 data-i18n="d3_t"></h3><p data-i18n="d3_d"></p></div>
+      <div class="stop"><h3 data-i18n="d4_t"></h3><p data-i18n="d4_d"></p></div>
+    </div>
+  </section>
+
+  <section id="dogs" class="dogs">
+    <h2 data-i18n="dogs_title"></h2><p class="intro" data-i18n="dogs_intro"></p>
+    <div class="dogs-grid">
+      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div>
+      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div>
+    </div>
+  </section>
+
+  <section id="book">
+    <div class="book-head"><h2 data-i18n="book_title"></h2><p data-i18n="book_intro"></p></div>
+    <div class="blob" style="max-width:760px;margin:0 auto">{{FORM}}</div>
+  </section>
+  <footer><span>Woof Bilbao · <span data-i18n="foot"></span></span> · <span data-i18n="foot_note"></span></footer>
+</div>
+{{SCRIPT}}
