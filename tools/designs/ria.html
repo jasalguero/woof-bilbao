@@ -28,7 +28,7 @@ nav a:hover{color:var(--accent)}
 .lang{display:inline-flex;border:1.5px solid var(--ink);border-radius:99px;overflow:hidden}
 .lang button{font:500 .8rem var(--mono);background:none;color:var(--ink);border:0;padding:6px 12px;cursor:pointer}
 .lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:end;padding-block:48px 64px}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;padding-block:48px 64px}
 .hero h1{font-size:clamp(2.6rem,7.2vw,5.6rem);font-weight:800}
 .hero p.sub{font-size:1.2rem;max-width:34ch;margin-top:22px;color:var(--muted)}
 .hero .acts{display:flex;gap:14px;flex-wrap:wrap;margin-top:30px}
@@ -36,7 +36,7 @@ nav a:hover{color:var(--accent)}
 .btn:hover{filter:brightness(1.08)}
 .btn.ghost{background:none;color:var(--ink);border-color:var(--ink)}
 .ph{position:relative;display:grid;place-items:center;min-height:200px;background:repeating-linear-gradient(135deg,var(--water) 0 14px,transparent 14px 28px),var(--surface);border:1.5px solid var(--line);color:var(--muted);font:500 .78rem var(--mono);letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:10px}
-.hero .ph{aspect-ratio:4/5;max-width:100%}
+.hero .ph{aspect-ratio:10/7;max-width:100%}
 .hero .ph::after{content:"43.2630° N · 2.9350° W";position:absolute;left:12px;bottom:10px;font-size:.68rem;opacity:.8}
 .river{display:block;width:100%;height:60px;color:var(--water)}
 section{padding-block:72px}
@@ -102,6 +102,9 @@ footer{border-top:1.5px solid var(--line);padding-block:28px;display:flex;justif
   section{padding-block:52px}
 }
 @media (max-width:480px){.steps{grid-template-columns:1fr}}
+.pic{padding:0;overflow:hidden;background:var(--surface)}
+.hero .ph.pic::after{color:#fff;opacity:.9;z-index:1}
+.il{--il-sw:1.5;--il-line:#12303d;--il-sky:#dce8ea;--il-sun:#e46a3c;--il-hill2:#a9c3c3;--il-hill1:#7fa3a6;--il-water:#2f6577;--il-wave:#8fb7c2;--il-ground:#c9d6c4;--il-bg1:#f2d9c9;--il-bg2:#cfe0e3;--il-c1:#c2481f;--il-c2:#2f6577;--il-c3:#7fa3a6;--il-fur1:#b97b4a;--il-fur2:#6d4528;--il-fur3:#eed9b8;--il-fur4:#3b302c;--il-wall:#eef2f1;--il-door:#c2481f;--il-cushion:#a9c3c3}
 </style>
 <!--BODY-->
 <div class="wrap">
@@ -119,7 +122,7 @@ footer{border-top:1.5px solid var(--line);padding-block:28px;display:flex;justif
       <p class="sub" data-i18n="hero_sub"></p>
       <div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div>
     </div>
-    <div class="ph"><span data-i18n="ph"></span></div>
+    <div class="ph pic">{{IMG:hero}}</div>
   </div>
 </div>
 <svg class="river" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C150 0 300 60 450 30 S750 0 900 30 S1100 55 1200 25 V60 H0Z" fill="currentColor"/></svg>
@@ -146,8 +149,8 @@ footer{border-top:1.5px solid var(--line);padding-block:28px;display:flex;justif
 <section id="dogs"><div class="wrap">
   <h2 data-i18n="dogs_title"></h2><p class="dogs-intro" data-i18n="dogs_intro"></p>
   <div class="dogs-grid">
-    <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Polo</h3><p data-i18n="polo_d"></p><span class="mono" data-i18n="dog_note"></span></div>
-    <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Daisy</h3><p data-i18n="daisy_d"></p><span class="mono" data-i18n="dog_note"></span></div>
+    <div class="dog"><div class="ph pic">{{IMG:polo}}</div><h3>Polo</h3><p data-i18n="polo_d"></p><span class="mono" data-i18n="dog_note"></span></div>
+    <div class="dog"><div class="ph pic">{{IMG:daisy}}</div><h3>Daisy</h3><p data-i18n="daisy_d"></p><span class="mono" data-i18n="dog_note"></span></div>
   </div>
 </div></section>
 

@@ -94,6 +94,36 @@ footer{padding-block:30px;text-align:center;font-weight:800}
 }
 @media (max-width:480px){.path{grid-template-columns:1fr}.pillar{transform:none!important}}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}}
+.pic{padding:0;overflow:hidden}
+.il{--il-sw:3.5;--il-line:#1d1b3a;--il-sky:#a9c8ff;--il-sun:#ffe27a;--il-hill2:#8fe3cf;--il-hill1:#5cc9ad;--il-water:#4f7cff;--il-ground:#7fdc8c;--il-bg1:#8fe3cf;--il-bg2:#a9c8ff;--il-c1:#ff5a36;--il-pink:#ff8fb1}
+/* Shared illustration palette; designs override --il-* tokens */
+.il{display:block;width:100%;height:100%}
+.il .o{stroke:var(--il-line,#2b2340);stroke-width:var(--il-sw,3);stroke-linejoin:round;stroke-linecap:round}
+.il .tail{fill:none!important;stroke-width:calc(var(--il-sw,3)*4)}
+.il .line{stroke:var(--il-line,#2b2340);fill:none}
+.il .fur1{fill:var(--il-fur1,#c98a4b);stroke:var(--il-line,#2b2340)}
+.il .tail.fur1{stroke:var(--il-fur1,#c98a4b)}.il .tail.fur3{stroke:var(--il-fur3,#f1dcb5)}.il .tail.fur4{stroke:var(--il-fur4,#4a3a35)}
+.il .fur2{fill:var(--il-fur2,#7a4b2a)}
+.il .fur3{fill:var(--il-fur3,#f1dcb5)}
+.il .fur4{fill:var(--il-fur4,#4a3a35)}
+.il .light{fill:var(--il-light,#fff3e2)}
+.il .dark{fill:var(--il-dark,#2b2340)}
+.il .white{fill:#fff}
+.il .pink{fill:var(--il-pink,#ff8fa3)}
+.il .blush{fill:var(--il-pink,#ff8fa3);opacity:.45}
+.il .collar{fill:var(--il-c1,#e5533d)}.il .collar2{fill:var(--il-c2,#3b8fe0)}.il .collar3{fill:var(--il-c3,#3fbf7f)}
+.il .tag,.il .sun,.il .ball{fill:var(--il-sun,#ffcc3d)}
+.il .bow{fill:var(--il-pink,#ff8fa3)}
+.il .sky{fill:var(--il-sky,#cde7f5)}
+.il .hill2{fill:var(--il-hill2,#9fcf9a)}.il .hill1{fill:var(--il-hill1,#6fb27a)}
+.il .water{fill:var(--il-water,#5aa6c8)}.il .wave{stroke:var(--il-wave,#bfe3f1);stroke-width:3;stroke-linecap:round}
+.il .ground{fill:var(--il-ground,#8fc46a)}
+.il .bridge{fill:var(--il-bridge,#fff);stroke:var(--il-bridge,#fff)}
+.il .wall{fill:var(--il-wall,#ffe9c7)}.il .door{fill:var(--il-door,#e5533d)}
+.il .bowl{fill:var(--il-c2,#3b8fe0)}.il .kibble{fill:var(--il-fur2,#7a4b2a)}
+.il .cushion{fill:var(--il-cushion,#b99ce8)}
+.il .zzz{fill:var(--il-line,#2b2340);font:700 28px system-ui,sans-serif}
+.il .bg1{fill:var(--il-bg1,#ffd6a8)}.il .bg2{fill:var(--il-bg2,#cfe3ff)}
 </style>
 </head>
 <body>
@@ -110,12 +140,12 @@ footer{padding-block:30px;text-align:center;font-weight:800}
     <h1 data-i18n="hero_title"></h1>
     <p class="sub" data-i18n="hero_sub"></p>
     <div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div>
-    <div class="ph"><span data-i18n="ph"></span></div>
+    <div class="ph pic"><svg class="il" viewBox="0 0 800 560" role="img" aria-label="Perros jugando junto a la ría / Dogs playing by the river" preserveAspectRatio="xMidYMid slice"><rect class="sky" width="800" height="560"/><circle class="sun" cx="656.0" cy="112.0" r="56.0"/><path class="hill2" d="M0 308.0 Q160.0 168.0 360.0 280.0 T800 235.2 V560 H0Z"/><path class="hill1" d="M0 347.2 Q240.0 252.0 480.0 336.0 T800 324.79999999999995 V560 H0Z"/><path class="bridge" d="M64.0 330 Q256.0 260 448.00000000000006 330" fill="none" stroke-width="7"/><line class="bridge" x1="102.4" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="140.79999999999998" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="179.20000000000002" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="217.60000000000002" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="256.0" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="294.40000000000003" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="332.8" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="371.20000000000005" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="409.6" y1="330" x2="256.0" y2="260" stroke-width="2"/><rect class="bridge" x="48.0" y="330" width="416.0" height="6"/><rect class="water" y="330" width="800" height="70"/><path class="wave" d="M20 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M110 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M200 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M290 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M380 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M470 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M560 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M650 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M740 358.0 q15 -8 30 0" fill="none"/><rect class="ground" y="400" width="800" height="160"/><g transform="translate(170 500) scale(1.3 1.3)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><g transform="translate(600 490) scale(-1.15 1.15)"><path class="o tail fur3" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur3" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur3" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar2" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur3" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><path class="o fur3" d="M24 -88 L30 -112 L44 -92 Z"/></g><g transform="translate(390 540) scale(0.9 0.9)"><path class="o tail fur4" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur4" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur4" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar3" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur4" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><circle class="o ball" cx="470" cy="470" r="14"/><path class="o line" d="M456 470 q14 -11.200000000000001 28 0" fill="none"/></svg></div>
   </div>
 
   <section id="about">
     <div class="about"><div class="blob"><h2 data-i18n="about_title"></h2><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div>
-    <div class="ph" style="aspect-ratio:1/1;transform:rotate(2deg)"><span data-i18n="ph"></span></div></div>
+    <div class="ph pic" style="aspect-ratio:1/1;transform:rotate(2deg)"><svg class="il" viewBox="0 0 400 400" role="img" aria-label="Perro con su comida / Dog with its meal" preserveAspectRatio="xMidYMid slice"><rect class="wall" width="400" height="400"/><rect class="ground" y="300" width="400" height="100"/><g transform="translate(150 330) scale(1.25 1.25)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><path class="o bowl" d="M250 300 h90 l-12 34 h-66z"/><ellipse class="kibble" cx="295" cy="300" rx="40" ry="9"/></svg></div></div>
     <div class="pillars">
       <div class="pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
       <div class="pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
@@ -136,8 +166,8 @@ footer{padding-block:30px;text-align:center;font-weight:800}
   <section id="dogs" class="dogs">
     <h2 data-i18n="dogs_title"></h2><p class="intro" data-i18n="dogs_intro"></p>
     <div class="dogs-grid">
-      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div>
-      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div>
+      <div class="dog"><div class="ph pic"><svg class="il" viewBox="0 0 400 400" role="img" aria-label="Polo" preserveAspectRatio="xMidYMid slice"><rect class="bg1" width="400" height="400"/><g transform="translate(200 190) scale(1.15)"><ellipse class="o fur1" cx="0" cy="120" rx="80" ry="70"/><ellipse class="light" cx="0" cy="130" rx="40" ry="46"/><ellipse class="o fur2" cx="-62" cy="-10" rx="22" ry="44" transform="rotate(18 -62 -10)"/><ellipse class="o fur2" cx="62" cy="-10" rx="22" ry="44" transform="rotate(-18 62 -10)"/><ellipse class="o fur1" cx="0" cy="0" rx="72" ry="66"/><ellipse class="fur2" cx="-30" cy="-20" rx="24" ry="22"/><ellipse class="o light" cx="0" cy="28" rx="34" ry="26"/><ellipse class="dark" cx="0" cy="14" rx="11" ry="8"/><path class="o line" d="M-12 32 q12 10 12 -6 q0 16 12 6" fill="none"/><path class="o pink" d="M-7 38 q7 20 14 0 z"/><circle class="dark" cx="-28" cy="-12" r="9"/><circle class="dark" cx="28" cy="-12" r="9"/><circle class="white" cx="-25" cy="-15" r="3"/><circle class="white" cx="31" cy="-15" r="3"/><circle class="blush" cx="-44" cy="16" r="10"/><circle class="blush" cx="44" cy="16" r="10"/><rect class="o collar" x="-48" y="58" width="96" height="16" rx="8"/><circle class="o tag" cx="0" cy="82" r="10"/></g></svg></div><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div>
+      <div class="dog"><div class="ph pic"><svg class="il" viewBox="0 0 400 400" role="img" aria-label="Daisy" preserveAspectRatio="xMidYMid slice"><rect class="bg2" width="400" height="400"/><g transform="translate(200 195) scale(1.15)"><ellipse class="o fur3" cx="0" cy="120" rx="80" ry="70"/><ellipse class="light" cx="0" cy="130" rx="40" ry="46"/><path class="o fur3" d="M-70 -30 L-58 -100 L-20 -58 Z"/><path class="o fur3" d="M70 -30 L58 -100 L20 -58 Z"/><path class="pink" d="M-60 -44 L-56 -82 L-34 -58 Z"/><path class="pink" d="M60 -44 L56 -82 L34 -58 Z"/><ellipse class="o fur3" cx="0" cy="0" rx="72" ry="66"/><ellipse class="o light" cx="0" cy="28" rx="34" ry="26"/><ellipse class="dark" cx="0" cy="14" rx="11" ry="8"/><path class="o line" d="M-12 32 q12 10 12 -6 q0 16 12 6" fill="none"/><path class="o pink" d="M-7 38 q7 20 14 0 z"/><circle class="dark" cx="-28" cy="-12" r="9"/><circle class="dark" cx="28" cy="-12" r="9"/><circle class="white" cx="-25" cy="-15" r="3"/><circle class="white" cx="31" cy="-15" r="3"/><circle class="blush" cx="-44" cy="16" r="10"/><circle class="blush" cx="44" cy="16" r="10"/><rect class="o collar" x="-48" y="58" width="96" height="16" rx="8"/><circle class="o tag" cx="0" cy="82" r="10"/><g transform="translate(46 -56) rotate(20)"><path class="o bow" d="M0 0 L-24 -14 L-24 14 Z"/><path class="o bow" d="M0 0 L24 -14 L24 14 Z"/><circle class="o bow" r="7"/></g></g></svg></div><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div>
     </div>
   </section>
 
@@ -241,6 +271,8 @@ footer{padding-block:30px;text-align:center;font-weight:800}
       err_req: "Completa los campos obligatorios.", err_dates: "La fecha final no puede ser anterior a la inicial.",
       ok_title: "Solicitud preparada", ok_text: "Este formulario es una maqueta y todavía no envía datos. Resumen de lo que has indicado:",
       ok_again: "Editar solicitud",
+      bubble_hero: "¡Guau! ¿Vienes a jugar?", polo_say: "¡Hola, soy Polo!", daisy_say: "¡Y yo soy Daisy!",
+      cap_day: "Mientras tanto, en Woof Bilbao…", cap_book: "¡Tu perro, el próximo protagonista!", burst: "¡Guau!",
       foot: "Bilbao, Bizkaia", foot_note: "Diseño provisional"
     },
     en: {
@@ -284,6 +316,8 @@ footer{padding-block:30px;text-align:center;font-weight:800}
       err_req: "Please fill in the required fields.", err_dates: "The end date cannot be before the start date.",
       ok_title: "Request ready", ok_text: "This form is a mock-up and does not send data yet. Summary of what you entered:",
       ok_again: "Edit request",
+      bubble_hero: "Woof! Coming to play?", polo_say: "Hi, I'm Polo!", daisy_say: "And I'm Daisy!",
+      cap_day: "Meanwhile, at Woof Bilbao…", cap_book: "Your dog could be our next star!", burst: "Woof!",
       foot: "Bilbao, Biscay", foot_note: "Draft design"
     }
   };

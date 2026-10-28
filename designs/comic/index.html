@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woof Bilbao Cómic</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap">
+<style>
+/* Layout: a cute comic book. Every section is a page of tilted panels with thick ink borders, caption boxes, speech bubbles and halftone dots. */
+:root{
+  --bg:#fff1d0; --paper:#fffdf7; --text:#23153d; --line:#23153d; --dots:#ffb3d1;
+  --pink:#ff6fae; --cyan:#3cc8f0; --yellow:#ffd93b; --lime:#8ee26b; --lilac:#b79cff; --on-color:#23153d;
+  --display:"Bangers","Impact","Arial Black",sans-serif; --body:"Comic Neue","Comic Sans MS","Chalkboard SE",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1438;--paper:#2d2052;--text:#fff4e0;--line:#0b0618;--dots:#4a2f7a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1e1438;--paper:#2d2052;--text:#fff4e0;--line:#0b0618;--dots:#4a2f7a;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg) radial-gradient(var(--dots) 1.6px,transparent 2px) 0 0/14px 14px;color:var(--text);font-family:var(--body);font-weight:700;font-size:18px;line-height:1.5}
+.wrap{max-width:1140px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3,legend,.cap,.bubble,.btn,.brand,.burst{font-family:var(--display);font-weight:400;letter-spacing:.04em}
+h1,h2,h3{margin:0;line-height:1;text-wrap:balance}
+h2{font-size:clamp(2.4rem,6vw,4rem);color:var(--text);text-shadow:3px 3px 0 var(--pink)}
+p{margin:0}
+:focus-visible{outline:4px dashed var(--pink);outline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-block:18px}
+.brand{font-size:2rem;color:var(--yellow);-webkit-text-stroke:2px var(--line);text-shadow:4px 4px 0 var(--line);text-decoration:none;transform:rotate(-2deg);display:inline-block}
+nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+nav a{font-family:var(--display);font-size:1.2rem;letter-spacing:.05em;color:var(--text);text-decoration:none;padding:4px 10px}
+nav a:hover{background:var(--yellow);color:var(--on-color);border-radius:8px}
+.lang{display:inline-flex;border:3px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:3px 3px 0 var(--line)}
+.lang button{font:1.05rem var(--display);letter-spacing:.06em;color:var(--on-color);background:var(--paper);border:0;padding:4px 12px;cursor:pointer}
+:root[data-theme="dark"] .lang button{color:var(--text)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lang button{color:var(--text)}}
+.lang button[aria-pressed="true"]{background:var(--cyan);color:var(--on-color)}
+.panel{position:relative;background:var(--paper);border:4px solid var(--line);border-radius:6px;box-shadow:7px 7px 0 var(--line);overflow:hidden;min-width:0}
+.pic{padding:0}
+.cap{position:absolute;top:-4px;left:-4px;z-index:2;background:var(--yellow);color:var(--on-color);border:4px solid var(--line);padding:4px 12px;font-size:1.2rem}
+.cap.static{position:static;display:inline-block;margin-bottom:12px}
+.bubble{position:absolute;z-index:2;background:#fff;color:#23153d;border:4px solid var(--line);border-radius:999px;padding:12px 22px;font-size:clamp(1.1rem,2.4vw,1.6rem);line-height:1.1;max-width:70%;text-align:center}
+.bubble::after{content:"";position:absolute;width:26px;height:26px;background:#fff;border:4px solid var(--line);border-top:0;border-left:0;bottom:-15px;left:28%;transform:skewX(30deg) rotate(45deg)}
+.burst{display:inline-grid;place-items:center;width:120px;height:120px;background:var(--pink);color:#fff;font-size:1.7rem;-webkit-text-stroke:1px var(--line);clip-path:polygon(50% 0,61% 22%,85% 10%,78% 36%,100% 45%,79% 58%,90% 84%,63% 76%,50% 100%,38% 77%,11% 88%,21% 60%,0 48%,22% 36%,13% 10%,39% 22%);transform:rotate(-10deg)}
+.btn{display:inline-block;font-size:1.35rem;background:var(--pink);color:#fff;border:4px solid var(--line);border-radius:14px;padding:10px 26px;text-decoration:none;box-shadow:5px 5px 0 var(--line);cursor:pointer;-webkit-text-stroke:.5px var(--line);transition:transform .1s,box-shadow .1s}
+.btn:hover{transform:translate(2px,2px) rotate(-1deg);box-shadow:3px 3px 0 var(--line)}
+.btn.ghost{background:var(--cyan);color:var(--on-color);-webkit-text-stroke:0}
+.hero{display:grid;grid-template-columns:7fr 5fr;gap:22px;padding-block:14px 40px}
+.hero .pic{aspect-ratio:10/7;transform:rotate(-1deg)}
+.hero .pic .bubble{top:22px;right:22px}
+.hero .side{display:grid;gap:22px;align-content:start}
+.hero .title{padding:30px 26px 26px;background:var(--lilac);color:var(--on-color);transform:rotate(1deg)}
+.hero h1{font-size:clamp(2.6rem,6vw,4.4rem);margin-top:18px;color:#fff;-webkit-text-stroke:2px var(--line);text-shadow:4px 4px 0 var(--line)}
+.hero .sub-p{padding:22px 24px;display:grid;gap:18px;transform:rotate(-.6deg)}
+.acts{display:flex;gap:14px;flex-wrap:wrap}
+section{padding-block:44px}
+.about{display:grid;grid-template-columns:5fr 7fr;gap:22px;align-items:stretch}
+.about .pic{min-height:320px;transform:rotate(1deg)}
+.about .txt{padding:28px;display:grid;gap:14px;align-content:start}
+.about h2{margin-bottom:6px}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:26px}
+.pillar{padding:24px;color:var(--on-color)}
+.pillar h3{font-size:1.7rem;margin-bottom:8px}
+.pillar:nth-child(1){background:var(--cyan);transform:rotate(-1.4deg)}
+.pillar:nth-child(2){background:var(--yellow);transform:rotate(.9deg)}
+.pillar:nth-child(3){background:var(--lime);transform:rotate(-.6deg)}
+.day-head{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:22px}
+.day-head .cap{position:static}
+.strip{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.strip .panel:nth-child(odd){transform:rotate(-.7deg)}.strip .panel:nth-child(even){transform:rotate(.7deg)}
+.frame{aspect-ratio:4/3;border-bottom:4px solid var(--line)}
+.strip .body{padding:16px 20px 20px}
+.strip h3{font-size:1.6rem;margin-bottom:4px;color:var(--pink)}
+.dogs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px;margin-top:26px}
+.dog .frame{aspect-ratio:1/1;position:relative}
+.dog .bubble{top:18px;left:18px}
+.dog .body{padding:18px 22px 22px}
+.dog h3{font-size:2.6rem;color:var(--cyan);-webkit-text-stroke:1.5px var(--line);text-shadow:3px 3px 0 var(--line)}
+.dog p{margin-top:6px}
+.dog small{display:block;margin-top:10px;opacity:.7;font-weight:400}
+.dog:nth-child(1){transform:rotate(-1deg)}.dog:nth-child(2){transform:rotate(1deg)}
+.book{display:grid;grid-template-columns:4fr 8fr;gap:26px;align-items:start}
+.book .intro{padding:26px;background:var(--pink);color:#fff;transform:rotate(-1deg)}
+.book .intro h2{color:#fff;text-shadow:3px 3px 0 var(--line);-webkit-text-stroke:1.5px var(--line)}
+.book .intro p{margin-top:12px}
+.book .intro .burst{margin-top:18px;background:var(--yellow);color:var(--on-color)}
+.book .formp{padding:28px}
+.form{display:grid;gap:26px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:14px;min-width:0}
+legend{font-size:1.6rem;color:var(--text);padding:0;margin-bottom:6px;text-shadow:2px 2px 0 var(--cyan)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.field{display:grid;gap:6px;min-width:0}
+label,.lbl{font-weight:700;font-size:.98rem}
+input,select,textarea{font:700 1rem var(--body);color:var(--text);background:var(--bg);border:3px solid var(--line);border-radius:12px;padding:10px 13px;width:100%;min-width:0}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--pink);flex:none}
+input:focus,select:focus,textarea:focus{outline:4px solid var(--cyan);outline-offset:1px}
+.checks{display:grid;gap:10px}
+.check{display:flex;gap:12px;align-items:flex-start}
+.days{display:flex;gap:10px;flex-wrap:wrap}
+.day input{position:absolute;opacity:0}
+label.day{position:relative;display:inline-grid;place-items:center;width:50px;height:50px;border:3px solid var(--line);border-radius:50%;cursor:pointer;background:var(--paper);font:1.3rem var(--display)}
+label.day:has(input:checked){background:var(--yellow);color:var(--on-color);box-shadow:3px 3px 0 var(--line)}
+label.day:has(input:focus-visible){outline:4px dashed var(--pink);outline-offset:2px}
+.error{background:var(--pink);color:#fff;border:3px solid var(--line);border-radius:12px;padding:8px 14px}
+.ok h3{font-size:2.4rem;color:var(--pink)}.ok p{margin:10px 0 18px}
+.ok dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0 0 24px}.ok dt{opacity:.7}.ok dd{margin:0;overflow-wrap:anywhere}
+footer{padding-block:30px;text-align:center;font-family:var(--display);font-size:1.2rem;letter-spacing:.05em}
+.pic{overflow:hidden}
+.il{--il-sw:4;--il-line:#23153d;--il-sky:#8fe0ff;--il-sun:#ffd93b;--il-hill2:#c6f08a;--il-hill1:#8ee26b;--il-water:#3c8cf0;--il-wave:#c9f1ff;--il-ground:#a8e86c;--il-wall:#ffe0f0;--il-door:#b79cff;--il-cushion:#ff9fca;--il-bg1:#ffd93b;--il-bg2:#ffb3d1;--il-c1:#ff6fae;--il-c2:#3cc8f0;--il-c3:#b79cff;--il-pink:#ff7fb5;--il-fur1:#e9a15f;--il-fur2:#9a5a30;--il-fur3:#fff0d2;--il-fur4:#6b4f45}
+@media (max-width:860px){
+  .hero,.about,.book{grid-template-columns:1fr}
+  .pillars{grid-template-columns:1fr}
+  .dogs-grid{grid-template-columns:1fr}
+  .book .formp{padding:18px}
+}
+@media (max-width:560px){.strip{grid-template-columns:1fr}.burst{width:96px;height:96px;font-size:1.3rem}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+/* Shared illustration palette; designs override --il-* tokens */
+.il{display:block;width:100%;height:100%}
+.il .o{stroke:var(--il-line,#2b2340);stroke-width:var(--il-sw,3);stroke-linejoin:round;stroke-linecap:round}
+.il .tail{fill:none!important;stroke-width:calc(var(--il-sw,3)*4)}
+.il .line{stroke:var(--il-line,#2b2340);fill:none}
+.il .fur1{fill:var(--il-fur1,#c98a4b);stroke:var(--il-line,#2b2340)}
+.il .tail.fur1{stroke:var(--il-fur1,#c98a4b)}.il .tail.fur3{stroke:var(--il-fur3,#f1dcb5)}.il .tail.fur4{stroke:var(--il-fur4,#4a3a35)}
+.il .fur2{fill:var(--il-fur2,#7a4b2a)}
+.il .fur3{fill:var(--il-fur3,#f1dcb5)}
+.il .fur4{fill:var(--il-fur4,#4a3a35)}
+.il .light{fill:var(--il-light,#fff3e2)}
+.il .dark{fill:var(--il-dark,#2b2340)}
+.il .white{fill:#fff}
+.il .pink{fill:var(--il-pink,#ff8fa3)}
+.il .blush{fill:var(--il-pink,#ff8fa3);opacity:.45}
+.il .collar{fill:var(--il-c1,#e5533d)}.il .collar2{fill:var(--il-c2,#3b8fe0)}.il .collar3{fill:var(--il-c3,#3fbf7f)}
+.il .tag,.il .sun,.il .ball{fill:var(--il-sun,#ffcc3d)}
+.il .bow{fill:var(--il-pink,#ff8fa3)}
+.il .sky{fill:var(--il-sky,#cde7f5)}
+.il .hill2{fill:var(--il-hill2,#9fcf9a)}.il .hill1{fill:var(--il-hill1,#6fb27a)}
+.il .water{fill:var(--il-water,#5aa6c8)}.il .wave{stroke:var(--il-wave,#bfe3f1);stroke-width:3;stroke-linecap:round}
+.il .ground{fill:var(--il-ground,#8fc46a)}
+.il .bridge{fill:var(--il-bridge,#fff);stroke:var(--il-bridge,#fff)}
+.il .wall{fill:var(--il-wall,#ffe9c7)}.il .door{fill:var(--il-door,#e5533d)}
+.il .bowl{fill:var(--il-c2,#3b8fe0)}.il .kibble{fill:var(--il-fur2,#7a4b2a)}
+.il .cushion{fill:var(--il-cushion,#b99ce8)}
+.il .zzz{fill:var(--il-line,#2b2340);font:700 28px system-ui,sans-serif}
+.il .bg1{fill:var(--il-bg1,#ffd6a8)}.il .bg2{fill:var(--il-bg2,#cfe3ff)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top">Woof Bilbao!</a>
+    <nav>
+      <a href="#about" data-i18n="nav_about"></a><a href="#day" data-i18n="nav_day"></a><a href="#dogs" data-i18n="nav_dogs"></a><a href="#book" data-i18n="nav_book"></a>
+      <div class="lang" role="group" aria-label="Idioma / Language"><button data-lang="es" aria-pressed="true">ES</button><button data-lang="en" aria-pressed="false">EN</button></div>
+    </nav>
+  </header>
+  <div class="hero" id="top">
+    <div class="panel pic"><svg class="il" viewBox="0 0 800 560" role="img" aria-label="Perros jugando junto a la ría / Dogs playing by the river" preserveAspectRatio="xMidYMid slice"><rect class="sky" width="800" height="560"/><circle class="sun" cx="656.0" cy="112.0" r="56.0"/><path class="hill2" d="M0 308.0 Q160.0 168.0 360.0 280.0 T800 235.2 V560 H0Z"/><path class="hill1" d="M0 347.2 Q240.0 252.0 480.0 336.0 T800 324.79999999999995 V560 H0Z"/><path class="bridge" d="M64.0 330 Q256.0 260 448.00000000000006 330" fill="none" stroke-width="7"/><line class="bridge" x1="102.4" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="140.79999999999998" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="179.20000000000002" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="217.60000000000002" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="256.0" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="294.40000000000003" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="332.8" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="371.20000000000005" y1="330" x2="256.0" y2="260" stroke-width="2"/><line class="bridge" x1="409.6" y1="330" x2="256.0" y2="260" stroke-width="2"/><rect class="bridge" x="48.0" y="330" width="416.0" height="6"/><rect class="water" y="330" width="800" height="70"/><path class="wave" d="M20 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M110 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M200 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M290 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M380 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M470 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M560 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M650 358.0 q15 -8 30 0" fill="none"/><path class="wave" d="M740 358.0 q15 -8 30 0" fill="none"/><rect class="ground" y="400" width="800" height="160"/><g transform="translate(170 500) scale(1.3 1.3)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><g transform="translate(600 490) scale(-1.15 1.15)"><path class="o tail fur3" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur3" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur3" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar2" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur3" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><path class="o fur3" d="M24 -88 L30 -112 L44 -92 Z"/></g><g transform="translate(390 540) scale(0.9 0.9)"><path class="o tail fur4" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur4" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur4" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar3" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur4" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><circle class="o ball" cx="470" cy="470" r="14"/><path class="o line" d="M456 470 q14 -11.200000000000001 28 0" fill="none"/></svg><span class="bubble" data-i18n="bubble_hero"></span></div>
+    <div class="side">
+      <div class="panel title"><span class="cap" data-i18n="hero_kicker"></span><h1 data-i18n="hero_title"></h1></div>
+      <div class="panel sub-p"><p data-i18n="hero_sub"></p><div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div></div>
+    </div>
+  </div>
+
+  <section id="about">
+    <div class="about">
+      <div class="panel pic"><svg class="il" viewBox="0 0 400 400" role="img" aria-label="Perro con su comida / Dog with its meal" preserveAspectRatio="xMidYMid slice"><rect class="wall" width="400" height="400"/><rect class="ground" y="300" width="400" height="100"/><g transform="translate(150 330) scale(1.25 1.25)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><path class="o bowl" d="M250 300 h90 l-12 34 h-66z"/><ellipse class="kibble" cx="295" cy="300" rx="40" ry="9"/></svg></div>
+      <div class="panel txt"><h2 data-i18n="about_title"></h2><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div>
+    </div>
+    <div class="pillars">
+      <div class="panel pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
+      <div class="panel pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
+      <div class="panel pillar"><h3 data-i18n="p3_t"></h3><p data-i18n="p3_d"></p></div>
+    </div>
+  </section>
+
+  <section id="day">
+    <div class="day-head"><h2 data-i18n="day_title"></h2><span class="cap" data-i18n="cap_day"></span></div>
+    <div class="strip">
+      <div class="panel"><div class="frame pic"><svg class="il" viewBox="0 0 400 300" role="img" aria-label="Llegada / Arrival" preserveAspectRatio="xMidYMid slice"><rect class="wall" width="400" height="300"/><rect class="o door" x="250" y="60" width="100" height="190" rx="8"/><circle class="dark" cx="335" cy="160" r="5"/><rect class="ground" y="250" width="400" height="50"/><g transform="translate(140 270) scale(1.05 1.05)"><path class="o tail fur3" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur3" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur3" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar2" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur3" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><path class="o fur3" d="M24 -88 L30 -112 L44 -92 Z"/></g></svg></div><div class="body"><h3 data-i18n="d1_t"></h3><p data-i18n="d1_d"></p></div></div>
+      <div class="panel"><div class="frame pic"><svg class="il" viewBox="0 0 400 300" role="img" aria-label="Paseo por la ría / River walk" preserveAspectRatio="xMidYMid slice"><rect class="sky" width="400" height="300"/><circle class="sun" cx="328.0" cy="60.0" r="30.0"/><path class="hill2" d="M0 165.0 Q80.0 90.0 180.0 150.0 T400 126.0 V300 H0Z"/><path class="hill1" d="M0 186.0 Q120.0 135.0 240.0 180.0 T400 174.0 V300 H0Z"/><rect class="water" y="190" width="400" height="40"/><path class="wave" d="M20 206.0 q15 -8 30 0" fill="none"/><path class="wave" d="M110 206.0 q15 -8 30 0" fill="none"/><path class="wave" d="M200 206.0 q15 -8 30 0" fill="none"/><path class="wave" d="M290 206.0 q15 -8 30 0" fill="none"/><path class="wave" d="M380 206.0 q15 -8 30 0" fill="none"/><rect class="ground" y="230" width="400" height="70"/><g transform="translate(120 270) scale(0.85 0.85)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><g transform="translate(290 275) scale(0.8 0.8)"><path class="o tail fur4" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur4" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur4" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur4" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar3" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur4" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g></svg></div><div class="body"><h3 data-i18n="d2_t"></h3><p data-i18n="d2_d"></p></div></div>
+      <div class="panel"><div class="frame pic"><svg class="il" viewBox="0 0 400 300" role="img" aria-label="Comida y siesta / Lunch and nap" preserveAspectRatio="xMidYMid slice"><rect class="wall" width="400" height="300"/><rect class="ground" y="220" width="400" height="80"/><ellipse class="o cushion" cx="180" cy="250" rx="130" ry="30"/><g transform="translate(180 260) scale(0.95 0.95)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><text class="zzz" x="290" y="110">z</text><text class="zzz" x="315" y="80" font-size="36">z</text><text class="zzz" x="340" y="50" font-size="46">Z</text><path class="o bowl" d="M310 240 h60 l-8 24 h-44z"/></svg></div><div class="body"><h3 data-i18n="d3_t"></h3><p data-i18n="d3_d"></p></div></div>
+      <div class="panel"><div class="frame pic"><svg class="il" viewBox="0 0 400 300" role="img" aria-label="Juego / Playtime" preserveAspectRatio="xMidYMid slice"><rect class="sky" width="400" height="300"/><circle class="sun" cx="328.0" cy="60.0" r="30.0"/><path class="hill2" d="M0 165.0 Q80.0 90.0 180.0 150.0 T400 126.0 V300 H0Z"/><path class="hill1" d="M0 186.0 Q120.0 135.0 240.0 180.0 T400 174.0 V300 H0Z"/><rect class="ground" y="210" width="400" height="90"/><g transform="translate(110 275) scale(0.85 0.85)"><path class="o tail fur3" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur3" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur3" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur3" cx="0" cy="-40" rx="44" ry="26"/><rect class="o collar2" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur3" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><path class="o fur3" d="M24 -88 L30 -112 L44 -92 Z"/></g><g transform="translate(300 280) scale(-0.9 0.9)"><path class="o tail fur1" d="M-38 -46 C-58 -58 -62 -80 -50 -92" fill="none"/><rect class="o fur1" x="-34" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="-16" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="10" y="-24" width="13" height="26" rx="6"/><rect class="o fur1" x="26" y="-24" width="13" height="26" rx="6"/><ellipse class="o fur1" cx="0" cy="-40" rx="44" ry="26"/><ellipse class="fur2" cx="-12" cy="-46" rx="14" ry="10"/><rect class="o collar" x="18" y="-60" width="14" height="22" rx="4" transform="rotate(-20 25 -49)"/><circle class="o fur1" cx="38" cy="-74" r="24"/><ellipse class="o light" cx="57" cy="-65" rx="15" ry="11"/><path class="o pink" d="M56 -56 q4 12 10 0 z"/><ellipse class="dark" cx="70" cy="-70" rx="5.5" ry="4.5"/><circle class="dark" cx="44" cy="-80" r="4"/><circle class="white" cx="45.5" cy="-81.5" r="1.4"/><circle class="blush" cx="48" cy="-66" r="5"/><ellipse class="o fur2" cx="26" cy="-80" rx="9" ry="17" transform="rotate(25 26 -80)"/></g><circle class="o ball" cx="205" cy="150" r="16"/><path class="o line" d="M189 150 q16 -12.8 32 0" fill="none"/></svg></div><div class="body"><h3 data-i18n="d4_t"></h3><p data-i18n="d4_d"></p></div></div>
+    </div>
+  </section>
+
+  <section id="dogs">
+    <h2 data-i18n="dogs_title"></h2><p data-i18n="dogs_intro" style="margin-top:12px;max-width:50ch"></p>
+    <div class="dogs-grid">
+      <div class="panel dog"><div class="frame pic"><svg class="il" viewBox="0 0 400 400" role="img" aria-label="Polo" preserveAspectRatio="xMidYMid slice"><rect class="bg1" width="400" height="400"/><g transform="translate(200 190) scale(1.15)"><ellipse class="o fur1" cx="0" cy="120" rx="80" ry="70"/><ellipse class="light" cx="0" cy="130" rx="40" ry="46"/><ellipse class="o fur2" cx="-62" cy="-10" rx="22" ry="44" transform="rotate(18 -62 -10)"/><ellipse class="o fur2" cx="62" cy="-10" rx="22" ry="44" transform="rotate(-18 62 -10)"/><ellipse class="o fur1" cx="0" cy="0" rx="72" ry="66"/><ellipse class="fur2" cx="-30" cy="-20" rx="24" ry="22"/><ellipse class="o light" cx="0" cy="28" rx="34" ry="26"/><ellipse class="dark" cx="0" cy="14" rx="11" ry="8"/><path class="o line" d="M-12 32 q12 10 12 -6 q0 16 12 6" fill="none"/><path class="o pink" d="M-7 38 q7 20 14 0 z"/><circle class="dark" cx="-28" cy="-12" r="9"/><circle class="dark" cx="28" cy="-12" r="9"/><circle class="white" cx="-25" cy="-15" r="3"/><circle class="white" cx="31" cy="-15" r="3"/><circle class="blush" cx="-44" cy="16" r="10"/><circle class="blush" cx="44" cy="16" r="10"/><rect class="o collar" x="-48" y="58" width="96" height="16" rx="8"/><circle class="o tag" cx="0" cy="82" r="10"/></g></svg><span class="bubble" data-i18n="polo_say"></span></div><div class="body"><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div></div>
+      <div class="panel dog"><div class="frame pic"><svg class="il" viewBox="0 0 400 400" role="img" aria-label="Daisy" preserveAspectRatio="xMidYMid slice"><rect class="bg2" width="400" height="400"/><g transform="translate(200 195) scale(1.15)"><ellipse class="o fur3" cx="0" cy="120" rx="80" ry="70"/><ellipse class="light" cx="0" cy="130" rx="40" ry="46"/><path class="o fur3" d="M-70 -30 L-58 -100 L-20 -58 Z"/><path class="o fur3" d="M70 -30 L58 -100 L20 -58 Z"/><path class="pink" d="M-60 -44 L-56 -82 L-34 -58 Z"/><path class="pink" d="M60 -44 L56 -82 L34 -58 Z"/><ellipse class="o fur3" cx="0" cy="0" rx="72" ry="66"/><ellipse class="o light" cx="0" cy="28" rx="34" ry="26"/><ellipse class="dark" cx="0" cy="14" rx="11" ry="8"/><path class="o line" d="M-12 32 q12 10 12 -6 q0 16 12 6" fill="none"/><path class="o pink" d="M-7 38 q7 20 14 0 z"/><circle class="dark" cx="-28" cy="-12" r="9"/><circle class="dark" cx="28" cy="-12" r="9"/><circle class="white" cx="-25" cy="-15" r="3"/><circle class="white" cx="31" cy="-15" r="3"/><circle class="blush" cx="-44" cy="16" r="10"/><circle class="blush" cx="44" cy="16" r="10"/><rect class="o collar" x="-48" y="58" width="96" height="16" rx="8"/><circle class="o tag" cx="0" cy="82" r="10"/><g transform="translate(46 -56) rotate(20)"><path class="o bow" d="M0 0 L-24 -14 L-24 14 Z"/><path class="o bow" d="M0 0 L24 -14 L24 14 Z"/><circle class="o bow" r="7"/></g></g></svg><span class="bubble" data-i18n="daisy_say"></span></div><div class="body"><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div></div>
+    </div>
+  </section>
+
+  <section id="book">
+    <div class="book">
+      <div class="panel intro"><span class="cap static" data-i18n="cap_book"></span><h2 data-i18n="book_title"></h2><p data-i18n="book_intro"></p><span class="burst" data-i18n="burst"></span></div>
+      <div class="panel formp"><form id="booking" class="form" novalidate>
+  <fieldset><legend data-i18n="f_owner"></legend>
+    <div class="field"><label for="f-name" data-i18n="f_name"></label><input id="f-name" name="name" autocomplete="name" required></div>
+    <div class="row">
+      <div class="field"><label for="f-email" data-i18n="f_email"></label><input id="f-email" name="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="f-phone" data-i18n="f_phone"></label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required></div>
+    </div>
+  </fieldset>
+  <fieldset><legend data-i18n="f_dog"></legend>
+    <div class="row">
+      <div class="field"><label for="f-dogname" data-i18n="f_dogname"></label><input id="f-dogname" name="dogname" required></div>
+      <div class="field"><label for="f-breed" data-i18n="f_breed"></label><input id="f-breed" name="breed" data-i18n-ph="f_breed_ph"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="f-age" data-i18n="f_age"></label><input id="f-age" name="age" data-i18n-ph="f_age_ph" required></div>
+      <div class="field"><label for="f-size" data-i18n="f_size"></label>
+        <select id="f-size" name="size" required><option value="" data-i18n="s_pick"></option><option value="s" data-i18n="s_s"></option><option value="m" data-i18n="s_m"></option><option value="l" data-i18n="s_l"></option></select></div>
+      <div class="field"><label for="f-sex" data-i18n="f_sex"></label>
+        <select id="f-sex" name="sex"><option value="" data-i18n="s_pick"></option><option value="m" data-i18n="sx_m"></option><option value="f" data-i18n="sx_f"></option></select></div>
+    </div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" name="neutered"><span data-i18n="f_neutered"></span></label>
+      <label class="check"><input type="checkbox" name="vacc" required><span data-i18n="f_vacc"></span></label>
+    </div>
+    <div class="field"><label for="f-med" data-i18n="f_med"></label><textarea id="f-med" name="med" rows="3" data-i18n-ph="f_med_ph"></textarea></div>
+    <div class="field"><label for="f-pref" data-i18n="f_pref"></label><textarea id="f-pref" name="pref" rows="3" data-i18n-ph="f_pref_ph"></textarea></div>
+  </fieldset>
+  <fieldset><legend data-i18n="f_dates"></legend>
+    <div class="row">
+      <div class="field"><label for="f-from" data-i18n="f_from"></label><input id="f-from" name="from" type="date" required></div>
+      <div class="field"><label for="f-to" data-i18n="f_to"></label><input id="f-to" name="to" type="date" required></div>
+    </div>
+    <div class="field"><span class="lbl" data-i18n="f_days"></span>
+      <div class="days">
+        <label class="day"><input type="checkbox" name="d1" checked><span data-i18n="dw1"></span></label>
+        <label class="day"><input type="checkbox" name="d2" checked><span data-i18n="dw2"></span></label>
+        <label class="day"><input type="checkbox" name="d3" checked><span data-i18n="dw3"></span></label>
+        <label class="day"><input type="checkbox" name="d4" checked><span data-i18n="dw4"></span></label>
+        <label class="day"><input type="checkbox" name="d5" checked><span data-i18n="dw5"></span></label>
+      </div></div>
+    <div class="field"><label for="f-notes" data-i18n="f_notes"></label><textarea id="f-notes" name="notes" rows="2"></textarea></div>
+  </fieldset>
+  <label class="check"><input type="checkbox" name="consent" required><span data-i18n="f_consent"></span></label>
+  <p id="form-error" class="error" role="alert" hidden></p>
+  <button class="btn" type="submit" data-i18n="f_submit"></button>
+</form>
+<div id="form-ok" class="ok" hidden>
+  <h3 data-i18n="ok_title"></h3><p data-i18n="ok_text"></p><dl></dl>
+  <button id="form-edit" class="btn ghost" type="button" data-i18n="ok_again"></button>
+</div>
+</div>
+    </div>
+  </section>
+  <footer><span>Woof Bilbao · <span data-i18n="foot"></span></span> · <span data-i18n="foot_note"></span></footer>
+</div>
+<script>
+(function () {
+  var T = {
+    es: {
+      brand: "Woof Bilbao", tag: "Guardería canina de día",
+      nav_about: "El lugar", nav_day: "Un día aquí", nav_dogs: "Residentes", nav_book: "Reservar",
+      hero_kicker: "Guardería canina en Bilbao",
+      hero_title: "Tu perro, bien cuidado mientras tú trabajas",
+      hero_sub: "Pasa el día con nosotros: paseos junto a la ría, comida a su hora y mucho juego con otros perros.",
+      cta: "Reservar plaza", cta2: "Cómo es un día",
+      ph: "Foto próximamente",
+      about_title: "Un sitio para que tu perro no se quede solo",
+      about_p1: "Woof Bilbao cuida de tu perro durante el día mientras tú estás en el trabajo. Llega por la mañana y vuelve a casa por la tarde cansado, contento y con ganas de dormir.",
+      about_p2: "Somos un grupo pequeño, así que cada perro recibe atención. Conocemos sus costumbres, sus miedos y lo que le gusta comer, y lo tenemos en cuenta cada día.",
+      p1_t: "Paseos junto a la ría", p1_d: "Salimos cada día a pasear por la orilla del Nervión, a su ritmo y con todo el grupo.",
+      p2_t: "Comida a su hora", p2_d: "Respetamos la dieta de cada perro. Tú nos dices qué come y cuándo, y nosotros lo cumplimos.",
+      p3_t: "Juego de verdad", p3_d: "Juegan con nuestros perros residentes y con el resto de compañeros, con descansos para recuperar energía.",
+      day_title: "Así es un día en Woof",
+      d1_t: "Llegada", d1_d: "Saludos, olisqueos y presentación al grupo. Tú te vas tranquilo.",
+      d2_t: "Paseo por la ría", d2_d: "Caminata en grupo por la orilla, con tiempo para explorar.",
+      d3_t: "Comida y siesta", d3_d: "Cada uno come lo suyo y después toca descansar.",
+      d4_t: "Juego", d4_d: "Juego libre con Polo, Daisy y los demás hasta la hora de recogida.",
+      dogs_title: "Los residentes", dogs_intro: "Polo y Daisy viven aquí. Reciben a cada perro nuevo y le enseñan la casa.",
+      polo_d: "Anfitrión de la casa. Es el primero en la puerta y el último en cansarse.",
+      daisy_d: "Organiza los juegos y vigila que nadie se quede fuera del grupo.",
+      dog_note: "Descripción y foto provisionales",
+      book_title: "Reserva una plaza", book_intro: "Cuéntanos quién es tu perro y para qué fechas necesitas plaza. Te responderemos para confirmar.",
+      f_owner: "Tus datos", f_dog: "Tu perro", f_dates: "Fechas",
+      f_name: "Nombre y apellidos", f_email: "Correo electrónico", f_phone: "Teléfono",
+      f_dogname: "Nombre del perro", f_breed: "Raza (si la hay)", f_breed_ph: "Mestizo, labrador…",
+      f_age: "Edad", f_age_ph: "Ej. 3 años", f_size: "Tamaño",
+      s_pick: "Elige…", s_s: "Pequeño (hasta 10 kg)", s_m: "Mediano (10 a 25 kg)", s_l: "Grande (más de 25 kg)",
+      f_sex: "Sexo", sx_m: "Macho", sx_f: "Hembra",
+      f_neutered: "Esterilizado/a", f_vacc: "Vacunas y desparasitación al día",
+      f_med: "Condiciones médicas o alergias", f_med_ph: "Medicación, alergias, operaciones recientes…",
+      f_pref: "Preferencias y carácter", f_pref_ph: "Comida, miedos, cómo juega con otros perros…",
+      f_from: "Desde", f_to: "Hasta", f_days: "Días de la semana",
+      dw1: "L", dw2: "M", dw3: "X", dw4: "J", dw5: "V",
+      f_notes: "Algo más que quieras contarnos",
+      f_consent: "Acepto que usen estos datos para gestionar mi reserva",
+      f_submit: "Enviar solicitud",
+      err_req: "Completa los campos obligatorios.", err_dates: "La fecha final no puede ser anterior a la inicial.",
+      ok_title: "Solicitud preparada", ok_text: "Este formulario es una maqueta y todavía no envía datos. Resumen de lo que has indicado:",
+      ok_again: "Editar solicitud",
+      bubble_hero: "¡Guau! ¿Vienes a jugar?", polo_say: "¡Hola, soy Polo!", daisy_say: "¡Y yo soy Daisy!",
+      cap_day: "Mientras tanto, en Woof Bilbao…", cap_book: "¡Tu perro, el próximo protagonista!", burst: "¡Guau!",
+      foot: "Bilbao, Bizkaia", foot_note: "Diseño provisional"
+    },
+    en: {
+      brand: "Woof Bilbao", tag: "Doggy daycare",
+      nav_about: "The place", nav_day: "A day here", nav_dogs: "Residents", nav_book: "Book",
+      hero_kicker: "Dog daycare in Bilbao",
+      hero_title: "Your dog, well looked after while you work",
+      hero_sub: "Spend the day with us: walks along the river, meals on time and plenty of play with other dogs.",
+      cta: "Book a spot", cta2: "See a typical day",
+      ph: "Photo coming soon",
+      about_title: "A place where your dog is never left alone",
+      about_p1: "Woof Bilbao looks after your dog during the day while you are at work. They arrive in the morning and go home in the evening tired, happy and ready to sleep.",
+      about_p2: "We keep the group small, so every dog gets attention. We learn their habits, their fears and what they like to eat, and we remember them every day.",
+      p1_t: "Walks along the river", p1_d: "Every day we walk the banks of the Nervión at their pace, with the whole group.",
+      p2_t: "Meals on time", p2_d: "We follow each dog's diet. You tell us what they eat and when, and we stick to it.",
+      p3_t: "Real play", p3_d: "They play with our resident dogs and the other guests, with breaks to recharge.",
+      day_title: "A day at Woof",
+      d1_t: "Arrival", d1_d: "Greetings, sniffing and an introduction to the group. You leave without worry.",
+      d2_t: "River walk", d2_d: "A group walk along the riverbank, with time to explore.",
+      d3_t: "Lunch and nap", d3_d: "Everyone eats their own meal, then it is time to rest.",
+      d4_t: "Playtime", d4_d: "Free play with Polo, Daisy and the others until pick-up.",
+      dogs_title: "Our residents", dogs_intro: "Polo and Daisy live here. They greet every new dog and show them around.",
+      polo_d: "The host of the house. First at the door and last to get tired.",
+      daisy_d: "Organises the games and makes sure nobody is left out of the group.",
+      dog_note: "Provisional description and photo",
+      book_title: "Book a spot", book_intro: "Tell us about your dog and which dates you need. We will get back to you to confirm.",
+      f_owner: "Your details", f_dog: "Your dog", f_dates: "Dates",
+      f_name: "Full name", f_email: "Email", f_phone: "Phone",
+      f_dogname: "Dog's name", f_breed: "Breed (if any)", f_breed_ph: "Mixed, Labrador…",
+      f_age: "Age", f_age_ph: "E.g. 3 years", f_size: "Size",
+      s_pick: "Choose…", s_s: "Small (up to 10 kg)", s_m: "Medium (10 to 25 kg)", s_l: "Large (over 25 kg)",
+      f_sex: "Sex", sx_m: "Male", sx_f: "Female",
+      f_neutered: "Neutered / spayed", f_vacc: "Vaccinations and deworming up to date",
+      f_med: "Medical conditions or allergies", f_med_ph: "Medication, allergies, recent surgery…",
+      f_pref: "Preferences and personality", f_pref_ph: "Food, fears, how they play with other dogs…",
+      f_from: "From", f_to: "To", f_days: "Days of the week",
+      dw1: "M", dw2: "T", dw3: "W", dw4: "T", dw5: "F",
+      f_notes: "Anything else you want to tell us",
+      f_consent: "I agree to my data being used to manage my booking",
+      f_submit: "Send request",
+      err_req: "Please fill in the required fields.", err_dates: "The end date cannot be before the start date.",
+      ok_title: "Request ready", ok_text: "This form is a mock-up and does not send data yet. Summary of what you entered:",
+      ok_again: "Edit request",
+      bubble_hero: "Woof! Coming to play?", polo_say: "Hi, I'm Polo!", daisy_say: "And I'm Daisy!",
+      cap_day: "Meanwhile, at Woof Bilbao…", cap_book: "Your dog could be our next star!", burst: "Woof!",
+      foot: "Bilbao, Biscay", foot_note: "Draft design"
+    }
+  };
+  var lang = "es";
+  try { var s = localStorage.getItem("woof-lang"); if (s === "es" || s === "en") lang = s; else if ((navigator.language || "").slice(0, 2) === "en") lang = "en"; } catch (e) {}
+  function t(k) { return T[lang][k] || k; }
+  function apply() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(function (el) { el.placeholder = t(el.getAttribute("data-i18n-ph")); });
+    document.querySelectorAll("[data-lang]").forEach(function (b) { var on = b.getAttribute("data-lang") === lang; b.setAttribute("aria-pressed", on); });
+    var err = document.getElementById("form-error"); if (err && err.dataset.key) err.textContent = t(err.dataset.key);
+    if (window.woofRenderSummary) window.woofRenderSummary();
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-lang]"); if (!b) return;
+    lang = b.getAttribute("data-lang"); try { localStorage.setItem("woof-lang", lang); } catch (x) {}
+    apply();
+  });
+  var form = document.getElementById("booking");
+  var today = new Date().toISOString().slice(0, 10);
+  if (form) {
+    form.elements.from.min = today; form.elements.to.min = today;
+    var err = document.getElementById("form-error"), ok = document.getElementById("form-ok");
+    function fail(k) { err.dataset.key = k; err.textContent = t(k); err.hidden = false; }
+    window.woofRenderSummary = function () {
+      if (ok.hidden) return;
+      var d = new FormData(form), rows = [["f_name", "name"], ["f_email", "email"], ["f_phone", "phone"], ["f_dogname", "dogname"], ["f_breed", "breed"], ["f_age", "age"], ["f_from", "from"], ["f_to", "to"]];
+      var h = rows.filter(function (r) { return d.get(r[1]); }).map(function (r) { return "<dt>" + t(r[0]) + "</dt><dd></dd>"; }).join("");
+      var dl = ok.querySelector("dl"); dl.innerHTML = h;
+      var dds = dl.querySelectorAll("dd"), i = 0;
+      rows.forEach(function (r) { if (d.get(r[1])) dds[i++].textContent = d.get(r[1]); });
+    };
+    form.addEventListener("submit", function (e) {
+      e.preventDefault(); err.hidden = true; err.dataset.key = "";
+      if (!form.checkValidity()) { fail("err_req"); form.reportValidity(); return; }
+      if (form.elements.to.value < form.elements.from.value) { fail("err_dates"); return; }
+      form.hidden = true; ok.hidden = false; window.woofRenderSummary();
+      ok.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    document.getElementById("form-edit").addEventListener("click", function () { ok.hidden = true; form.hidden = false; });
+  }
+  apply();
+})();
+</script>
+</body>
+</html>

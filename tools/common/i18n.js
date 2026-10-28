@@ -41,6 +41,8 @@
       err_req: "Completa los campos obligatorios.", err_dates: "La fecha final no puede ser anterior a la inicial.",
       ok_title: "Solicitud preparada", ok_text: "Este formulario es una maqueta y todavía no envía datos. Resumen de lo que has indicado:",
       ok_again: "Editar solicitud",
+      bubble_hero: "¡Guau! ¿Vienes a jugar?", polo_say: "¡Hola, soy Polo!", daisy_say: "¡Y yo soy Daisy!",
+      cap_day: "Mientras tanto, en Woof Bilbao…", cap_book: "¡Tu perro, el próximo protagonista!", burst: "¡Guau!",
       foot: "Bilbao, Bizkaia", foot_note: "Diseño provisional"
     },
     en: {
@@ -84,6 +86,8 @@
       err_req: "Please fill in the required fields.", err_dates: "The end date cannot be before the start date.",
       ok_title: "Request ready", ok_text: "This form is a mock-up and does not send data yet. Summary of what you entered:",
       ok_again: "Edit request",
+      bubble_hero: "Woof! Coming to play?", polo_say: "Hi, I'm Polo!", daisy_say: "And I'm Daisy!",
+      cap_day: "Meanwhile, at Woof Bilbao…", cap_book: "Your dog could be our next star!", burst: "Woof!",
       foot: "Bilbao, Biscay", foot_note: "Draft design"
     }
   };

@@ -89,6 +89,8 @@ footer{padding-block:30px;text-align:center;font-weight:800}
 }
 @media (max-width:480px){.path{grid-template-columns:1fr}.pillar{transform:none!important}}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}}
+.pic{padding:0;overflow:hidden}
+.il{--il-sw:3.5;--il-line:#1d1b3a;--il-sky:#a9c8ff;--il-sun:#ffe27a;--il-hill2:#8fe3cf;--il-hill1:#5cc9ad;--il-water:#4f7cff;--il-ground:#7fdc8c;--il-bg1:#8fe3cf;--il-bg2:#a9c8ff;--il-c1:#ff5a36;--il-pink:#ff8fb1}
 </style>
 <!--BODY-->
 <div class="wrap">
@@ -104,12 +106,12 @@ footer{padding-block:30px;text-align:center;font-weight:800}
     <h1 data-i18n="hero_title"></h1>
     <p class="sub" data-i18n="hero_sub"></p>
     <div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div>
-    <div class="ph"><span data-i18n="ph"></span></div>
+    <div class="ph pic">{{IMG:hero}}</div>
   </div>
 
   <section id="about">
     <div class="about"><div class="blob"><h2 data-i18n="about_title"></h2><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div>
-    <div class="ph" style="aspect-ratio:1/1;transform:rotate(2deg)"><span data-i18n="ph"></span></div></div>
+    <div class="ph pic" style="aspect-ratio:1/1;transform:rotate(2deg)">{{IMG:about}}</div></div>
     <div class="pillars">
       <div class="pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
       <div class="pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
@@ -130,8 +132,8 @@ footer{padding-block:30px;text-align:center;font-weight:800}
   <section id="dogs" class="dogs">
     <h2 data-i18n="dogs_title"></h2><p class="intro" data-i18n="dogs_intro"></p>
     <div class="dogs-grid">
-      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div>
-      <div class="dog"><div class="ph"><span data-i18n="ph"></span></div><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div>
+      <div class="dog"><div class="ph pic">{{IMG:polo}}</div><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div>
+      <div class="dog"><div class="ph pic">{{IMG:daisy}}</div><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div>
     </div>
   </section>
 

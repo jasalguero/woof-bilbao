@@ -1,0 +1,168 @@
+<title>Woof Bilbao Cómic</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:wght@400;700&display=swap">
+<style>
+/* Layout: a cute comic book. Every section is a page of tilted panels with thick ink borders, caption boxes, speech bubbles and halftone dots. */
+:root{
+  --bg:#fff1d0; --paper:#fffdf7; --text:#23153d; --line:#23153d; --dots:#ffb3d1;
+  --pink:#ff6fae; --cyan:#3cc8f0; --yellow:#ffd93b; --lime:#8ee26b; --lilac:#b79cff; --on-color:#23153d;
+  --display:"Bangers","Impact","Arial Black",sans-serif; --body:"Comic Neue","Comic Sans MS","Chalkboard SE",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1438;--paper:#2d2052;--text:#fff4e0;--line:#0b0618;--dots:#4a2f7a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1e1438;--paper:#2d2052;--text:#fff4e0;--line:#0b0618;--dots:#4a2f7a;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg) radial-gradient(var(--dots) 1.6px,transparent 2px) 0 0/14px 14px;color:var(--text);font-family:var(--body);font-weight:700;font-size:18px;line-height:1.5}
+.wrap{max-width:1140px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3,legend,.cap,.bubble,.btn,.brand,.burst{font-family:var(--display);font-weight:400;letter-spacing:.04em}
+h1,h2,h3{margin:0;line-height:1;text-wrap:balance}
+h2{font-size:clamp(2.4rem,6vw,4rem);color:var(--text);text-shadow:3px 3px 0 var(--pink)}
+p{margin:0}
+:focus-visible{outline:4px dashed var(--pink);outline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-block:18px}
+.brand{font-size:2rem;color:var(--yellow);-webkit-text-stroke:2px var(--line);text-shadow:4px 4px 0 var(--line);text-decoration:none;transform:rotate(-2deg);display:inline-block}
+nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+nav a{font-family:var(--display);font-size:1.2rem;letter-spacing:.05em;color:var(--text);text-decoration:none;padding:4px 10px}
+nav a:hover{background:var(--yellow);color:var(--on-color);border-radius:8px}
+.lang{display:inline-flex;border:3px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:3px 3px 0 var(--line)}
+.lang button{font:1.05rem var(--display);letter-spacing:.06em;color:var(--on-color);background:var(--paper);border:0;padding:4px 12px;cursor:pointer}
+:root[data-theme="dark"] .lang button{color:var(--text)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lang button{color:var(--text)}}
+.lang button[aria-pressed="true"]{background:var(--cyan);color:var(--on-color)}
+.panel{position:relative;background:var(--paper);border:4px solid var(--line);border-radius:6px;box-shadow:7px 7px 0 var(--line);overflow:hidden;min-width:0}
+.pic{padding:0}
+.cap{position:absolute;top:-4px;left:-4px;z-index:2;background:var(--yellow);color:var(--on-color);border:4px solid var(--line);padding:4px 12px;font-size:1.2rem}
+.cap.static{position:static;display:inline-block;margin-bottom:12px}
+.bubble{position:absolute;z-index:2;background:#fff;color:#23153d;border:4px solid var(--line);border-radius:999px;padding:12px 22px;font-size:clamp(1.1rem,2.4vw,1.6rem);line-height:1.1;max-width:70%;text-align:center}
+.bubble::after{content:"";position:absolute;width:26px;height:26px;background:#fff;border:4px solid var(--line);border-top:0;border-left:0;bottom:-15px;left:28%;transform:skewX(30deg) rotate(45deg)}
+.burst{display:inline-grid;place-items:center;width:120px;height:120px;background:var(--pink);color:#fff;font-size:1.7rem;-webkit-text-stroke:1px var(--line);clip-path:polygon(50% 0,61% 22%,85% 10%,78% 36%,100% 45%,79% 58%,90% 84%,63% 76%,50% 100%,38% 77%,11% 88%,21% 60%,0 48%,22% 36%,13% 10%,39% 22%);transform:rotate(-10deg)}
+.btn{display:inline-block;font-size:1.35rem;background:var(--pink);color:#fff;border:4px solid var(--line);border-radius:14px;padding:10px 26px;text-decoration:none;box-shadow:5px 5px 0 var(--line);cursor:pointer;-webkit-text-stroke:.5px var(--line);transition:transform .1s,box-shadow .1s}
+.btn:hover{transform:translate(2px,2px) rotate(-1deg);box-shadow:3px 3px 0 var(--line)}
+.btn.ghost{background:var(--cyan);color:var(--on-color);-webkit-text-stroke:0}
+.hero{display:grid;grid-template-columns:7fr 5fr;gap:22px;padding-block:14px 40px}
+.hero .pic{aspect-ratio:10/7;transform:rotate(-1deg)}
+.hero .pic .bubble{top:22px;right:22px}
+.hero .side{display:grid;gap:22px;align-content:start}
+.hero .title{padding:30px 26px 26px;background:var(--lilac);color:var(--on-color);transform:rotate(1deg)}
+.hero h1{font-size:clamp(2.6rem,6vw,4.4rem);margin-top:18px;color:#fff;-webkit-text-stroke:2px var(--line);text-shadow:4px 4px 0 var(--line)}
+.hero .sub-p{padding:22px 24px;display:grid;gap:18px;transform:rotate(-.6deg)}
+.acts{display:flex;gap:14px;flex-wrap:wrap}
+section{padding-block:44px}
+.about{display:grid;grid-template-columns:5fr 7fr;gap:22px;align-items:stretch}
+.about .pic{min-height:320px;transform:rotate(1deg)}
+.about .txt{padding:28px;display:grid;gap:14px;align-content:start}
+.about h2{margin-bottom:6px}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:26px}
+.pillar{padding:24px;color:var(--on-color)}
+.pillar h3{font-size:1.7rem;margin-bottom:8px}
+.pillar:nth-child(1){background:var(--cyan);transform:rotate(-1.4deg)}
+.pillar:nth-child(2){background:var(--yellow);transform:rotate(.9deg)}
+.pillar:nth-child(3){background:var(--lime);transform:rotate(-.6deg)}
+.day-head{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:22px}
+.day-head .cap{position:static}
+.strip{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.strip .panel:nth-child(odd){transform:rotate(-.7deg)}.strip .panel:nth-child(even){transform:rotate(.7deg)}
+.frame{aspect-ratio:4/3;border-bottom:4px solid var(--line)}
+.strip .body{padding:16px 20px 20px}
+.strip h3{font-size:1.6rem;margin-bottom:4px;color:var(--pink)}
+.dogs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px;margin-top:26px}
+.dog .frame{aspect-ratio:1/1;position:relative}
+.dog .bubble{top:18px;left:18px}
+.dog .body{padding:18px 22px 22px}
+.dog h3{font-size:2.6rem;color:var(--cyan);-webkit-text-stroke:1.5px var(--line);text-shadow:3px 3px 0 var(--line)}
+.dog p{margin-top:6px}
+.dog small{display:block;margin-top:10px;opacity:.7;font-weight:400}
+.dog:nth-child(1){transform:rotate(-1deg)}.dog:nth-child(2){transform:rotate(1deg)}
+.book{display:grid;grid-template-columns:4fr 8fr;gap:26px;align-items:start}
+.book .intro{padding:26px;background:var(--pink);color:#fff;transform:rotate(-1deg)}
+.book .intro h2{color:#fff;text-shadow:3px 3px 0 var(--line);-webkit-text-stroke:1.5px var(--line)}
+.book .intro p{margin-top:12px}
+.book .intro .burst{margin-top:18px;background:var(--yellow);color:var(--on-color)}
+.book .formp{padding:28px}
+.form{display:grid;gap:26px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:14px;min-width:0}
+legend{font-size:1.6rem;color:var(--text);padding:0;margin-bottom:6px;text-shadow:2px 2px 0 var(--cyan)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.field{display:grid;gap:6px;min-width:0}
+label,.lbl{font-weight:700;font-size:.98rem}
+input,select,textarea{font:700 1rem var(--body);color:var(--text);background:var(--bg);border:3px solid var(--line);border-radius:12px;padding:10px 13px;width:100%;min-width:0}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--pink);flex:none}
+input:focus,select:focus,textarea:focus{outline:4px solid var(--cyan);outline-offset:1px}
+.checks{display:grid;gap:10px}
+.check{display:flex;gap:12px;align-items:flex-start}
+.days{display:flex;gap:10px;flex-wrap:wrap}
+.day input{position:absolute;opacity:0}
+label.day{position:relative;display:inline-grid;place-items:center;width:50px;height:50px;border:3px solid var(--line);border-radius:50%;cursor:pointer;background:var(--paper);font:1.3rem var(--display)}
+label.day:has(input:checked){background:var(--yellow);color:var(--on-color);box-shadow:3px 3px 0 var(--line)}
+label.day:has(input:focus-visible){outline:4px dashed var(--pink);outline-offset:2px}
+.error{background:var(--pink);color:#fff;border:3px solid var(--line);border-radius:12px;padding:8px 14px}
+.ok h3{font-size:2.4rem;color:var(--pink)}.ok p{margin:10px 0 18px}
+.ok dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0 0 24px}.ok dt{opacity:.7}.ok dd{margin:0;overflow-wrap:anywhere}
+footer{padding-block:30px;text-align:center;font-family:var(--display);font-size:1.2rem;letter-spacing:.05em}
+.pic{overflow:hidden}
+.il{--il-sw:4;--il-line:#23153d;--il-sky:#8fe0ff;--il-sun:#ffd93b;--il-hill2:#c6f08a;--il-hill1:#8ee26b;--il-water:#3c8cf0;--il-wave:#c9f1ff;--il-ground:#a8e86c;--il-wall:#ffe0f0;--il-door:#b79cff;--il-cushion:#ff9fca;--il-bg1:#ffd93b;--il-bg2:#ffb3d1;--il-c1:#ff6fae;--il-c2:#3cc8f0;--il-c3:#b79cff;--il-pink:#ff7fb5;--il-fur1:#e9a15f;--il-fur2:#9a5a30;--il-fur3:#fff0d2;--il-fur4:#6b4f45}
+@media (max-width:860px){
+  .hero,.about,.book{grid-template-columns:1fr}
+  .pillars{grid-template-columns:1fr}
+  .dogs-grid{grid-template-columns:1fr}
+  .book .formp{padding:18px}
+}
+@media (max-width:560px){.strip{grid-template-columns:1fr}.burst{width:96px;height:96px;font-size:1.3rem}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top">Woof Bilbao!</a>
+    <nav>
+      <a href="#about" data-i18n="nav_about"></a><a href="#day" data-i18n="nav_day"></a><a href="#dogs" data-i18n="nav_dogs"></a><a href="#book" data-i18n="nav_book"></a>
+      <div class="lang" role="group" aria-label="Idioma / Language"><button data-lang="es" aria-pressed="true">ES</button><button data-lang="en" aria-pressed="false">EN</button></div>
+    </nav>
+  </header>
+  <div class="hero" id="top">
+    <div class="panel pic">{{IMG:hero}}<span class="bubble" data-i18n="bubble_hero"></span></div>
+    <div class="side">
+      <div class="panel title"><span class="cap" data-i18n="hero_kicker"></span><h1 data-i18n="hero_title"></h1></div>
+      <div class="panel sub-p"><p data-i18n="hero_sub"></p><div class="acts"><a class="btn" href="#book" data-i18n="cta"></a><a class="btn ghost" href="#day" data-i18n="cta2"></a></div></div>
+    </div>
+  </div>
+
+  <section id="about">
+    <div class="about">
+      <div class="panel pic">{{IMG:about}}</div>
+      <div class="panel txt"><h2 data-i18n="about_title"></h2><p data-i18n="about_p1"></p><p data-i18n="about_p2"></p></div>
+    </div>
+    <div class="pillars">
+      <div class="panel pillar"><h3 data-i18n="p1_t"></h3><p data-i18n="p1_d"></p></div>
+      <div class="panel pillar"><h3 data-i18n="p2_t"></h3><p data-i18n="p2_d"></p></div>
+      <div class="panel pillar"><h3 data-i18n="p3_t"></h3><p data-i18n="p3_d"></p></div>
+    </div>
+  </section>
+
+  <section id="day">
+    <div class="day-head"><h2 data-i18n="day_title"></h2><span class="cap" data-i18n="cap_day"></span></div>
+    <div class="strip">
+      <div class="panel"><div class="frame pic">{{IMG:arrival}}</div><div class="body"><h3 data-i18n="d1_t"></h3><p data-i18n="d1_d"></p></div></div>
+      <div class="panel"><div class="frame pic">{{IMG:walk}}</div><div class="body"><h3 data-i18n="d2_t"></h3><p data-i18n="d2_d"></p></div></div>
+      <div class="panel"><div class="frame pic">{{IMG:nap}}</div><div class="body"><h3 data-i18n="d3_t"></h3><p data-i18n="d3_d"></p></div></div>
+      <div class="panel"><div class="frame pic">{{IMG:play}}</div><div class="body"><h3 data-i18n="d4_t"></h3><p data-i18n="d4_d"></p></div></div>
+    </div>
+  </section>
+
+  <section id="dogs">
+    <h2 data-i18n="dogs_title"></h2><p data-i18n="dogs_intro" style="margin-top:12px;max-width:50ch"></p>
+    <div class="dogs-grid">
+      <div class="panel dog"><div class="frame pic">{{IMG:polo}}<span class="bubble" data-i18n="polo_say"></span></div><div class="body"><h3>Polo</h3><p data-i18n="polo_d"></p><small data-i18n="dog_note"></small></div></div>
+      <div class="panel dog"><div class="frame pic">{{IMG:daisy}}<span class="bubble" data-i18n="daisy_say"></span></div><div class="body"><h3>Daisy</h3><p data-i18n="daisy_d"></p><small data-i18n="dog_note"></small></div></div>
+    </div>
+  </section>
+
+  <section id="book">
+    <div class="book">
+      <div class="panel intro"><span class="cap static" data-i18n="cap_book"></span><h2 data-i18n="book_title"></h2><p data-i18n="book_intro"></p><span class="burst" data-i18n="burst"></span></div>
+      <div class="panel formp">{{FORM}}</div>
+    </div>
+  </section>
+  <footer><span>Woof Bilbao · <span data-i18n="foot"></span></span> · <span data-i18n="foot_note"></span></footer>
+</div>
+{{SCRIPT}}
