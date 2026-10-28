@@ -2,7 +2,7 @@
 
 | Slot | File | License |
 |---|---|---|
-| hero | Dogs playing 003.jpg | CC BY-SA 4.0 |
+| hero | 8PM and 92 Degrees (9027863613).jpg | CC BY 2.0 |
 | about | White dog walk in richmond (Unsplash).jpg | CC0 |
 | arrival | Long Haired Australian Cattle Dog.jpg | CC0 |
 | walk | Dog Walking in Cache Valley (51202415647).jpg | Public domain |
