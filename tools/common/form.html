@@ -41,6 +41,8 @@
     <div class="field"><label for="f-notes" data-i18n="f_notes"></label><textarea id="f-notes" name="notes" rows="2"></textarea></div>
   </fieldset>
   <label class="check"><input type="checkbox" name="consent" required><span data-i18n="f_consent"></span></label>
+  <div class="hp" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label>Leave empty<input name="hp_extra" tabindex="-1" autocomplete="off"></label></div>
+  {{TURNSTILE}}
   <p id="form-error" class="error" role="alert" hidden></p>
   <button class="btn" type="submit" data-i18n="f_submit"></button>
 </form>
