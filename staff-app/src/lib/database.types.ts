@@ -273,7 +273,7 @@ isOneToOne: false
 { Args: { "p_new": string,"p_old": string }; Returns: string
                            },
 "check_in":
-{ Args: { "p_dog_id": string,"p_note"?: string,"p_walk_in"?: boolean }; Returns: {
+{ Args: { "p_allow_over"?: boolean,"p_dog_id": string,"p_note"?: string,"p_walk_in"?: boolean }; Returns: {
               "booking_id": string | null,
 "checked_in_at": string | null,
 "checked_in_by": string | null,
@@ -408,6 +408,9 @@ isOneToOne: false
 "jsonb_bool_field":
 { Args: { "p_key": string,"p_obj": Json }; Returns: boolean
                            },
+"jsonb_date":
+{ Args: { "p_key": string,"p_obj": Json }; Returns: string
+                           },
 "jsonb_text_field":
 { Args: { "p_key": string,"p_max"?: number,"p_obj": Json,"p_required"?: boolean }; Returns: string
                            },
@@ -416,6 +419,9 @@ isOneToOne: false
                            },
 "max_dogs_on":
 { Args: { "p_day": string }; Returns: number
+                           },
+"queue_request_email":
+{ Args: { "p_request_id": string }; Returns: string
                            },
 "queue_vaccine_reminders":
 { Args: { "p_today"?: string }; Returns: number

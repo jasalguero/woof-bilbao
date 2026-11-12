@@ -17,6 +17,12 @@ describe('classifyError', () => {
     expect(classifyError(new TypeError('Failed to fetch')).kind).toBe('network');
     expect(classifyError('boom')).toEqual({ kind: 'other', message: 'boom' });
   });
+  it('reads the walk-in capacity error', () => {
+    expect(classifyError({ code: 'P0001', hint: 'over_capacity', message: 'no room today: 12/12' })).toEqual({
+      kind: 'over_capacity', count: 12, max: 12
+    });
+    expect(classifyError({ hint: 'over_capacity', message: 'odd' })).toEqual({ kind: 'over_capacity', count: 0, max: 0 });
+  });
   it('recognises the attendance errors', () => {
     expect(classifyError({ code: '22023', hint: 'not_booked', message: 'dog x has no confirmed booking today' })).toEqual({
       kind: 'attendance',

@@ -92,11 +92,14 @@ The app opens on **Today** after signing in.
   One big tap checks a dog **in**, then **out**; "With a note…" adds an
   optional note first. Mistakes can be undone (**Undo check-in** before the
   check-out, **Undo check-out** after it). **Walk-in check-in** picks any
-  active dog with no booking today and asks for confirmation first. Counters
+  active dog with no booking today and asks for confirmation first; if today
+  is already at the daily maximum it says so ("There are already 12/12 dogs
+  today") and only checks the dog in if you choose **Let in anyway**. Counters
   show expected (and how many are still to come), here now, gone home and
   walk-ins. Weekends and closed days show a friendly closed message instead.
   The screen updates live when a colleague checks a dog in or out on another
-  computer, and moves to the new day at midnight if left open. All of it goes
+  computer, and moves to the new day at midnight if left open; tapping a
+  button on yesterday's list just reloads today's instead. All of it goes
   through the `check_in` / `check_out` / `undo_*` database functions, which
   always use today's date and keep one attendance row per dog per day.
 - **Requests**: the inbox of new booking requests from the website, newest

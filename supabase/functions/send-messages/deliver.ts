@@ -50,7 +50,13 @@ export interface Summary {
   failed: number;
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// One plain address: no display names, lists or header tricks.
+const ADDRESS = `[^\\s@,;<>"]+`;
+const EMAIL = new RegExp(`^${ADDRESS}@${ADDRESS}\\.${ADDRESS}$`);
+
+export function isPlainEmail(value: unknown): boolean {
+  return typeof value === "string" && EMAIL.test(value.trim());
+}
 
 export async function deliverBatch(deps: Deps, opts: Options): Promise<Summary> {
   const log = deps.log ?? console.error;
@@ -60,7 +66,7 @@ export async function deliverBatch(deps: Deps, opts: Options): Promise<Summary> 
   for (let i = 0; i < rows.length; i++) {
     const m = rows[i];
     let result: Outcome;
-    if (!EMAIL.test(m.recipient?.trim() ?? "")) {
+    if (!isPlainEmail(m.recipient)) {
       result = { outcome: "failed", error: "recipient is not an email address" };
     } else {
       try {

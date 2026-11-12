@@ -4,7 +4,7 @@
 -- Run with: npx supabase test db
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(64);
+select plan(81);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'admin@test.local'),
@@ -32,6 +32,8 @@ insert into public.dogs (id, owner_id, name, active, vaccines_up_to_date) values
 insert into public.bookings (id, dog_id, start_date, end_date, weekdays, status) values
   ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '2030-01-07', '2030-01-11', '{1,2,3,4,5}', 'confirmed'),
   ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000004', '2030-01-07', '2030-01-11', '{1,2,3,4,5}', 'pending');
+-- Monday 2030-01-07 takes one dog, and Txuri is booked: walk-ins are over capacity.
+insert into public.capacity (day, max_dogs) values ('2030-01-07', 1);
 
 -- ---------------------------------------------------------------------------
 -- madrid_today
@@ -80,10 +82,16 @@ select throws_like(
 select throws_like(
   $$select public.check_in('20000000-0000-0000-0000-000000000004')$$,
   '%no confirmed booking today%', 'a pending booking does not count as booked');
+select throws_like(
+  $$select public.check_in('20000000-0000-0000-0000-000000000002', null, true)$$,
+  'no room today: 1/1', 'a walk-in on a full day is refused with the count');
+select is(
+  (select count(*)::int from public.attendance where dog_id = '20000000-0000-0000-0000-000000000002'),
+  0, 'a refused walk-in saves nothing');
 select results_eq(
-  $$select booking_id, checked_in_at is not null from public.check_in('20000000-0000-0000-0000-000000000002', null, true)$$,
+  $$select booking_id, checked_in_at is not null from public.check_in('20000000-0000-0000-0000-000000000002', null, true, true)$$,
   $$values (null::uuid, true)$$,
-  'a walk-in checks in an active dog with no booking');
+  'a walk-in checks in an active dog with no booking when staff allow going over');
 select throws_like(
   $$select public.check_in('20000000-0000-0000-0000-000000000003', null, true)$$,
   '%is not active%', 'an inactive dog cannot walk in');
@@ -122,6 +130,17 @@ select throws_like(
 select lives_ok($$select public.undo_check_in('20000000-0000-0000-0000-000000000002')$$, 'staff (not only admins) can undo a check-in');
 select is((select count(*)::int from public.attendance where dog_id = '20000000-0000-0000-0000-000000000002'), 0, 'undoing a check-in removes the row');
 select lives_ok($$select public.undo_check_in('20000000-0000-0000-0000-000000000002')$$, 'undoing a missing check-in is a no-op');
+reset role;
+update public.capacity set max_dogs = 2 where day = '2030-01-07';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}';
+select lives_ok(
+  $$select public.check_in('20000000-0000-0000-0000-000000000002', null, true)$$,
+  'a walk-in with room needs no override');
+select throws_like(
+  $$select public.check_in('20000000-0000-0000-0000-000000000004', null, true)$$,
+  'no room today: 2/2', 'walk-ins and booked dogs count once each (two dogs, two places)');
+select lives_ok($$select public.undo_check_in('20000000-0000-0000-0000-000000000002')$$, 'undo the second walk-in');
 delete from public.attendance where dog_id = '20000000-0000-0000-0000-000000000001';
 select is(
   (select count(*)::int from public.attendance where dog_id = '20000000-0000-0000-0000-000000000001'),
@@ -170,6 +189,42 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}';
 select ok((select count(*)::int from public.booking_requests) > 0, 'staff can see booking requests (and get events)');
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- The outbox is read-only for staff; requests queue mail through a helper.
+-- ---------------------------------------------------------------------------
+insert into public.booking_requests (id, payload, status) values
+  ('40000000-0000-0000-0000-000000000001', '{"lang":"en","owner":{"name":"Zoe","email":"zoe@test.local"},"dog":{"name":"Rex"},"dates":{"from":"2030-02-04","to":"2030-02-08","weekdays":[1]}}', 'new');
+insert into public.messages (id, recipient, template) values ('50000000-0000-0000-0000-000000000099', 'old@test.local', 'request_received');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}';
+select throws_ok(
+  $$insert into public.messages (recipient, template, data) values ('victim@test.local', 'request_received', '{"dog":"Click here"}')$$,
+  '42501', null, 'staff (even admins) cannot insert messages directly');
+select throws_ok(
+  $$update public.messages set status = 'queued', recipient = 'victim@test.local' where id = '50000000-0000-0000-0000-000000000099'$$,
+  '42501', null, 'staff cannot update messages (no re-sending, no redirecting)');
+select is((select count(*)::int from public.messages where id = '50000000-0000-0000-0000-000000000099'), 1, 'staff can still read messages');
+select throws_ok(
+  $$select public.queue_request_email('40000000-0000-0000-0000-000000000001')$$,
+  '22023', null, 'queue_request_email refuses a request that is still new');
+select lives_ok($$select public.decline_booking_request('40000000-0000-0000-0000-000000000001')$$, 'decline still works for staff');
+select results_eq(
+  $$select recipient, template, language::text, data ->> 'dog' from public.messages where request_id = '40000000-0000-0000-0000-000000000001'$$,
+  $$values ('zoe@test.local', 'request_declined', 'en', 'Rex')$$,
+  'decline still queues its email (through the helper)');
+select is(public.queue_request_email('40000000-0000-0000-0000-000000000001'), null, 'calling the helper again queues nothing');
+select is((select count(*)::int from public.messages where request_id = '40000000-0000-0000-0000-000000000001'), 1, 'one email per request and template');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c","role":"authenticated"}';
+select throws_ok($$select public.queue_request_email('40000000-0000-0000-0000-000000000001')$$, '42501', null, 'non-staff cannot queue request emails');
+reset role;
+select ok(
+  not has_table_privilege('authenticated', 'public.messages', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.messages', 'UPDATE')
+  and has_table_privilege('authenticated', 'public.messages', 'SELECT'),
+  'authenticated keeps SELECT only (plus DELETE for admins via RLS)');
 
 -- ---------------------------------------------------------------------------
 -- Email outbox: claim_messages / complete_message
@@ -237,8 +292,34 @@ select results_eq(
 reset role;
 select results_eq(
   $$select status::text, error from public.messages where id = '50000000-0000-0000-0000-000000000003'$$,
-  $$values ('failed', 'no result after 3 attempts')$$,
-  'a stale row with no attempts left is failed');
+  $$values ('failed', 'unknown: no result after final attempt (may have been sent; check Resend dashboard)')$$,
+  'a stuck row with no attempts left is failed as "unknown", not as a plain failure');
+
+-- Out-of-date mail is not sent late (today = 2030-01-07).
+delete from public.messages;
+insert into public.messages (id, recipient, template, created_at, data) values
+  ('51000000-0000-0000-0000-000000000001', 'a@test.local', 'vaccine_reminder', now() - interval '4 days', '{"next_day":"2030-01-09"}'),
+  ('51000000-0000-0000-0000-000000000002', 'a@test.local', 'vaccine_reminder', now(), '{"next_day":"2030-01-04"}'),
+  ('51000000-0000-0000-0000-000000000003', 'a@test.local', 'vaccine_reminder', now() - interval '2 days', '{"next_day":"2030-01-07"}'),
+  ('51000000-0000-0000-0000-000000000004', 'a@test.local', 'request_received', now() - interval '8 days', '{}'),
+  ('51000000-0000-0000-0000-000000000005', 'a@test.local', 'new_request', now() - interval '6 days', '{}'),
+  ('51000000-0000-0000-0000-000000000006', 'a@test.local', 'request_accepted', now(), '{"to":"2030-01-04"}'),
+  ('51000000-0000-0000-0000-000000000007', 'a@test.local', 'request_declined', now() - interval '20 days', '{"to":"2030-02-01"}'),
+  ('51000000-0000-0000-0000-000000000008', 'a@test.local', 'vaccine_reminder', now(), '{"next_day":"not a date"}');
+set local role service_role;
+select results_eq(
+  $$select id from public.claim_messages('email', 50) order by id$$,
+  $$values ('51000000-0000-0000-0000-000000000003'::uuid), ('51000000-0000-0000-0000-000000000005'::uuid),
+           ('51000000-0000-0000-0000-000000000007'::uuid), ('51000000-0000-0000-0000-000000000008'::uuid)$$,
+  'only mail that is still timely is claimed');
+reset role;
+select results_eq(
+  $$select id, status::text, error from public.messages where error = 'stale' order by id$$,
+  $$values ('51000000-0000-0000-0000-000000000001'::uuid, 'failed', 'stale'),
+           ('51000000-0000-0000-0000-000000000002'::uuid, 'failed', 'stale'),
+           ('51000000-0000-0000-0000-000000000004'::uuid, 'failed', 'stale'),
+           ('51000000-0000-0000-0000-000000000006'::uuid, 'failed', 'stale')$$,
+  'old reminders, reminders for a past day, week-old receipts and answers about past dates are failed as stale');
 
 -- ---------------------------------------------------------------------------
 -- Vaccine reminders (today = Mon 2030-01-07)

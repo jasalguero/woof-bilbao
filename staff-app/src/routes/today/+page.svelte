@@ -7,7 +7,8 @@
   import { watchTable } from '#lib/realtime.ts';
   import { t, fmtDate } from '#lib/i18n/index.svelte.ts';
   import type { MessageKey } from '#lib/i18n/dict.ts';
-  import { fail, ok } from '#lib/toast.svelte.ts';
+  import { classifyError } from '#lib/logic/errors.ts';
+  import { fail, notice, ok } from '#lib/toast.svelte.ts';
   import Modal from '#lib/components/Modal.svelte';
   import VaccineFlag from '#lib/components/VaccineFlag.svelte';
 
@@ -64,12 +65,60 @@
     };
   });
 
+  // The app may have been open since yesterday: never act on a stale list.
+  // If the date in Bilbao has moved on, switch to the new day (which reloads)
+  // and let the person look again.
+  function dayMoved(): boolean {
+    const now = todayIso();
+    if (now === day) return false;
+    day = now;
+    noting = null;
+    walkIn = null;
+    overCap = null;
+    notice(t('today.dayChanged'));
+    return true;
+  }
+
+  // A walk-in on a day already at the daily maximum asks before going over.
+  let overCap = $state<{ dogId: string; name: string; note?: string; count: number; max: number } | null>(null);
+
+  /** Checks a dog in; false when it stopped to ask about capacity. */
+  async function doCheckIn(dogId: string, name: string, note: string | undefined, walkIn: boolean, allowOver = false) {
+    try {
+      await checkIn(dogId, note, walkIn, allowOver);
+    } catch (err) {
+      const k = classifyError(err);
+      if (k.kind === 'over_capacity' && !allowOver) {
+        overCap = { dogId, name, note, count: k.count, max: k.max };
+        return false;
+      }
+      throw err;
+    }
+    ok(t('today.checkedIn', { dog: name }));
+    return true;
+  }
+
+  async function admitOver() {
+    if (!overCap || dayMoved()) return;
+    const { dogId, name, note } = overCap;
+    overCap = null;
+    busy = dogId;
+    try {
+      await doCheckIn(dogId, name, note, true, true);
+    } catch (err) {
+      fail(err);
+    } finally {
+      busy = null;
+      await load();
+    }
+  }
+
   async function act(e: TodayEntry, what: 'in' | 'out' | 'undoIn' | 'undoOut', note?: string) {
+    if (dayMoved()) return;
     busy = e.dog.id;
     try {
       if (what === 'in') {
-        await checkIn(e.dog.id, note, !e.booked);
-        ok(t('today.checkedIn', { dog: e.dog.name }));
+        await doCheckIn(e.dog.id, e.dog.name, note, !e.booked);
       } else if (what === 'out') {
         await checkOut(e.dog.id, note);
         ok(t('today.checkedOut', { dog: e.dog.name }));
@@ -102,6 +151,7 @@
   const candidates = $derived(walkIn?.dogs ? walkInCandidates(walkIn.dogs, entries, walkIn.query) : []);
 
   async function openWalkIn() {
+    if (dayMoved()) return;
     walkIn = { dogs: null, query: '', chosen: null, note: '' };
     try {
       const dogs = await listDogs();
@@ -114,12 +164,11 @@
 
   async function confirmWalkIn() {
     const chosen = walkIn?.chosen;
-    if (!walkIn || !chosen) return;
+    if (!walkIn || !chosen || dayMoved()) return;
     const note = walkIn.note.trim();
     busy = chosen.id;
     try {
-      await checkIn(chosen.id, note, true);
-      ok(t('today.checkedIn', { dog: chosen.name }));
+      await doCheckIn(chosen.id, chosen.name, note, true);
       walkIn = null;
     } catch (err) {
       fail(err);
@@ -243,6 +292,16 @@
     {#snippet actions()}
       <button class="quiet" onclick={() => (noting = null)}>{t('common.cancel')}</button>
       <button class="primary" onclick={saveNote}>{t(noting!.what === 'in' ? 'today.checkIn' : 'today.checkOut')}</button>
+    {/snippet}
+  </Modal>
+{/if}
+
+{#if overCap}
+  <Modal title={t('today.overTitle')} onclose={() => (overCap = null)}>
+    <p data-testid="over-capacity">{t('today.overBody', { count: overCap.count, max: overCap.max })}</p>
+    {#snippet actions()}
+      <button class="quiet" onclick={() => (overCap = null)}>{t('common.cancel')}</button>
+      <button class="primary" onclick={admitOver}>{t('today.overDo')}</button>
     {/snippet}
   </Modal>
 {/if}

@@ -42,6 +42,8 @@ export function describeError(err: unknown): string {
       return t('error.noDays');
     case 'already_handled':
       return t('error.alreadyHandled');
+    case 'over_capacity':
+      return t('error.overCapacity', { count: e.count, max: e.max });
     case 'attendance':
       return t(`error.attendance.${e.reason}`);
     case 'duplicate':

@@ -30,8 +30,11 @@ export async function getToday(day: string): Promise<TodayData> {
 
 // The RPCs always use today's date in Bilbao, decided by the database.
 
-export async function checkIn(dogId: string, note?: string, walkIn = false): Promise<Attendance> {
-  return must(await supabase.rpc('check_in', { p_dog_id: dogId, p_note: note || undefined, p_walk_in: walkIn }));
+/** allowOver: admit a walk-in even when today is already at the daily maximum. */
+export async function checkIn(dogId: string, note?: string, walkIn = false, allowOver = false): Promise<Attendance> {
+  return must(
+    await supabase.rpc('check_in', { p_dog_id: dogId, p_note: note || undefined, p_walk_in: walkIn, p_allow_over: allowOver })
+  );
 }
 
 export async function checkOut(dogId: string, note?: string): Promise<Attendance> {

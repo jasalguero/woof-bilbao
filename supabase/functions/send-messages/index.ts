@@ -49,7 +49,7 @@ function json(status: number, body: unknown): Response {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { ok: false, error: "method_not_allowed" });
 
-  const secret = Deno.env.get("SEND_MESSAGES_SECRET") ?? "";
+  const secret = (Deno.env.get("SEND_MESSAGES_SECRET") ?? "").trim();
   if (!secret) {
     console.error("SEND_MESSAGES_SECRET is not set; refusing to run");
     return json(503, { ok: false, error: "not_configured" });
@@ -58,8 +58,8 @@ Deno.serve(async (req) => {
     return json(401, { ok: false, error: "unauthorized" });
   }
 
-  const apiKey = Deno.env.get("RESEND_API_KEY") ?? "";
-  const from = Deno.env.get("EMAIL_FROM") ?? "";
+  const apiKey = (Deno.env.get("RESEND_API_KEY") ?? "").trim();
+  const from = (Deno.env.get("EMAIL_FROM") ?? "").trim();
   if (!apiKey || !from) {
     console.warn("RESEND_API_KEY or EMAIL_FROM is not set: emails stay queued until they are");
     return json(200, { ok: true, skipped: "email_not_configured" });

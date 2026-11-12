@@ -22,7 +22,7 @@ Needs Docker and Node.js (for `npx`).
 ```sh
 npx supabase start            # starts Postgres, Auth, API, Storage, Edge Runtime
 npx supabase db reset         # applies migrations + seed.sql
-npx supabase test db          # 134 database tests
+npx supabase test db          # 151 database tests
 npx deno test supabase/functions/                  # form validation, email templates, sender
 npx supabase functions serve --no-verify-jwt       # serves the functions on :54321
 ```
@@ -91,6 +91,16 @@ the check is skipped (fine for local development only).
 
 ## How it fits together
 
+- Nobody writes the `messages` outbox from the app: staff can read it (and
+  admins delete), but INSERT and UPDATE are revoked from `authenticated`, so a
+  staff login can't make the sender email arbitrary text to anyone or re-send
+  old mail. Rows are written only by the service role (`submit-booking`,
+  `send-messages`) and by database functions. `accept_booking_request` and
+  `decline_booking_request` queue their email through
+  `queue_request_email(request)`, a narrow security definer helper that builds
+  the message itself from the request (recipient: the booked owner's address,
+  or the form's address for a decline), and queues at most one per request
+  and template.
 - The website never talks to tables: the `anon` role has no table access. The
   form posts JSON to `submit-booking`, which validates it, inserts a
   `booking_requests` row and queues emails in `messages`.
@@ -129,7 +139,12 @@ the check is skipped (fine for local development only).
   `undo_check_in(dog)` and `undo_check_out(dog)`. They always use today's
   date in Bilbao (`madrid_today()`), keep one `attendance` row per dog per day,
   refuse weekends and closed days, and need `walk_in => true` for a dog with
-  no confirmed booking today (an active dog only). Repeating a check-in or
+  no confirmed booking today (an active dog only). Walk-ins count against the
+  daily maximum: when today's dogs (every dog with an attendance row plus every
+  confirmed booked dog, each once) already reach `max_dogs_on(today)`, a
+  walk-in fails with `no room today: N/M` (hint `over_capacity`) unless
+  `allow_over => true`; the app asks first. Booked dogs never hit this (the
+  booking was already counted when it was confirmed). Repeating a check-in or
   check-out is harmless. Errors carry a hint the app translates
   (`closed_day`, `not_booked`, `inactive_dog`, `not_checked_in`,
   `already_checked_out`). Undoing a check-in deletes today's row (the audit log
@@ -172,8 +187,22 @@ something queued. The function:
   puts it back to `queued` after a 5xx, 429 or network error (`attempts`
   counts them; the third failure is final), or `failed` with the error for
   anything else (bad address, unknown template). A row stuck in `sending` for
-  15 minutes (a run that died) is picked up again. Staff can see each
-  owner's messages and their status on the owner page.
+  15 minutes (a run that died) is picked up again. If that happens after the
+  third attempt the row is failed with `unknown: no result after final attempt
+  (may have been sent; check Resend dashboard)`: the run died after calling
+  Resend but before recording the answer, so the email may well have gone
+  out. Look it up in the Resend dashboard (search by recipient) before
+  re-queueing it. Staff can see each owner's messages and their status on the
+  owner page;
+- does not send mail that has gone out of date; it is failed with error
+  `stale` instead. This matters most the day the sender is switched on, when
+  weeks of queued mail would otherwise all go at once:
+
+  | Template | Stale when |
+  |---|---|
+  | `vaccine_reminder` | queued more than 3 days ago, or its `next_day` has passed (a new one is queued after 30 days if still needed) |
+  | `request_received`, `new_request` | queued more than 7 days ago (a "we got it" that late is noise; staff see requests live in the app) |
+  | `request_accepted`, `request_declined` | the requested dates (`data.to`) have passed |
 
 ### Setting it up (once the domain is bought)
 

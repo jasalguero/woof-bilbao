@@ -35,7 +35,13 @@ $$;
 --
 -- Errors raise errcode 22023 with a hint the app turns into a sentence:
 --   closed_day, not_booked, inactive_dog, not_checked_in, already_checked_out,
---   bad_input.
+--   bad_input; and over_capacity (P0001) for a walk-in on a full day.
+--
+-- Walk-ins count against the daily maximum like bookings do: today's dogs
+-- are every dog with an attendance row today plus every confirmed booked dog
+-- (each counted once). When that is already max_dogs_on(today) or more, a
+-- walk-in fails with 'no room today: N/M' (hint over_capacity) unless
+-- p_allow_over is true (the app asks first).
 -- ---------------------------------------------------------------------------
 
 -- Appends a note on a new line, ignoring blanks.
@@ -44,14 +50,20 @@ language sql immutable set search_path = '' as $$
   select nullif(concat_ws(E'\n', nullif(trim(p_old), ''), nullif(trim(p_new), '')), '');
 $$;
 
-create function public.check_in(p_dog_id uuid, p_note text default null, p_walk_in boolean default false)
-returns public.attendance
+create function public.check_in(
+  p_dog_id     uuid,
+  p_note       text default null,
+  p_walk_in    boolean default false,
+  p_allow_over boolean default false
+) returns public.attendance
 language plpgsql security invoker set search_path = '' as $$
 declare
   v_day     date := public.madrid_today();
   v_dog     public.dogs;
   v_booking uuid;
   v_row     public.attendance;
+  v_count   integer;
+  v_max     integer;
 begin
   if not public.is_staff() then
     raise exception 'only staff can check dogs in' using errcode = '42501';
@@ -92,6 +104,25 @@ begin
     if v_row.checked_in_at is not null then
       return v_row; -- someone else got there first
     end if;
+  end if;
+
+  if v_booking is null and not coalesce(p_allow_over, false) then
+    -- Same lock as the booking capacity check, so a walk-in and a booking
+    -- confirmation can't both take the last place.
+    perform pg_advisory_xact_lock(hashtext('public.confirm_booking'));
+    select count(*) into v_count from (
+      select a.dog_id from public.attendance a where a.day = v_day and a.dog_id <> p_dog_id
+      union
+      select bd.dog_id from public.booking_days bd
+      where bd.day = v_day and bd.status = 'confirmed' and bd.dog_id <> p_dog_id
+    ) today;
+    v_max := public.max_dogs_on(v_day);
+    if v_count >= v_max then
+      raise exception 'no room today: %/%', v_count, v_max using errcode = 'P0001', hint = 'over_capacity';
+    end if;
+  end if;
+
+  if v_row.id is not null then
     update public.attendance
     set checked_in_at = now(), checked_in_by = auth.uid(),
         booking_id = coalesce(booking_id, v_booking), note = public.append_note(note, p_note)
@@ -216,7 +247,14 @@ end $$;
 -- claim_messages() moves up to p_limit queued rows to 'sending' and returns
 -- them. FOR UPDATE SKIP LOCKED means two overlapping runs never get the same
 -- row. A row left in 'sending' for 15 minutes (the function died mid-run) is
--- claimable again, until it has had 3 attempts.
+-- claimable again, until it has had 3 attempts; after that it is failed with
+-- an "unknown" error, because the last attempt may well have been sent.
+--
+-- Before claiming, out-of-date mail is failed with error 'stale' instead of
+-- being sent late (e.g. a backlog built up before the sender was set up):
+--   vaccine_reminder                    older than 3 days, or its next_day has passed;
+--   request_received, new_request       older than 7 days;
+--   request_accepted, request_declined  the requested dates (data.to) have passed.
 --
 -- complete_message() records the outcome of one attempt:
 --   'sent'   -> sent, with sent_at;
@@ -233,15 +271,43 @@ alter table public.messages
 create index messages_dog_template_idx on public.messages (dog_id, template, created_at) where dog_id is not null;
 create index messages_sending_idx on public.messages (last_attempt_at) where status = 'sending';
 
+-- A YYYY-MM-DD field of a jsonb object as a date; null when missing or invalid.
+create function public.jsonb_date(p_obj jsonb, p_key text) returns date
+language plpgsql immutable set search_path = '' as $$
+begin
+  if jsonb_typeof(p_obj -> p_key) = 'string' and (p_obj ->> p_key) ~ '^\d{4}-\d{2}-\d{2}$' then
+    return (p_obj ->> p_key)::date;
+  end if;
+  return null;
+exception when others then
+  return null;
+end $$;
+
 create function public.claim_messages(p_channel public.message_channel default 'email', p_limit integer default 20)
 returns setof public.messages
 language plpgsql security invoker set search_path = '' as $$
 begin
-  -- Rows stuck in 'sending' after their last allowed attempt give up.
+  -- Rows stuck in 'sending' after their last allowed attempt give up. The
+  -- run died before recording the result, so it may have been sent.
   update public.messages
-  set status = 'failed', error = coalesce(error, 'no result after 3 attempts')
+  set status = 'failed',
+      error = 'unknown: no result after final attempt (may have been sent; check Resend dashboard)'
   where channel = p_channel and status = 'sending' and attempts >= 3
     and last_attempt_at < now() - interval '15 minutes';
+
+  update public.messages
+  set status = 'failed', error = 'stale'
+  where channel = p_channel and status = 'queued'
+    and case template
+          when 'vaccine_reminder' then
+            created_at < now() - interval '3 days'
+            or public.jsonb_date(data, 'next_day') < public.madrid_today()
+          when 'request_received' then created_at < now() - interval '7 days'
+          when 'new_request' then created_at < now() - interval '7 days'
+          when 'request_accepted' then public.jsonb_date(data, 'to') < public.madrid_today()
+          when 'request_declined' then public.jsonb_date(data, 'to') < public.madrid_today()
+          else false
+        end;
 
   return query
   update public.messages m
@@ -380,18 +446,20 @@ select cron.schedule('send-messages', '*/5 * * * *', 'select public.invoke_send_
 revoke execute on function public.madrid_today() from anon, public;
 revoke execute on function public.is_open_day(date) from anon, public;
 revoke execute on function public.append_note(text, text) from anon, public;
-revoke execute on function public.check_in(uuid, text, boolean) from anon, public;
+revoke execute on function public.check_in(uuid, text, boolean, boolean) from anon, public;
 revoke execute on function public.check_out(uuid, text) from anon, public;
 revoke execute on function public.undo_check_out(uuid) from anon, public;
 revoke execute on function public.undo_check_in(uuid) from anon, public;
 grant execute on function public.madrid_today() to authenticated, service_role;
 grant execute on function public.is_open_day(date) to authenticated, service_role;
 grant execute on function public.append_note(text, text) to authenticated, service_role;
-grant execute on function public.check_in(uuid, text, boolean) to authenticated, service_role;
+grant execute on function public.check_in(uuid, text, boolean, boolean) to authenticated, service_role;
 grant execute on function public.check_out(uuid, text) to authenticated, service_role;
 grant execute on function public.undo_check_out(uuid) to authenticated, service_role;
 grant execute on function public.undo_check_in(uuid) to authenticated, service_role;
 
+revoke execute on function public.jsonb_date(jsonb, text) from anon, public;
+grant execute on function public.jsonb_date(jsonb, text) to authenticated, service_role;
 revoke execute on function public.claim_messages(public.message_channel, integer) from anon, authenticated, public;
 revoke execute on function public.complete_message(uuid, text, text, text) from anon, authenticated, public;
 revoke execute on function public.queue_vaccine_reminders(date) from anon, authenticated, public;
@@ -399,3 +467,264 @@ revoke execute on function public.invoke_send_messages() from anon, authenticate
 grant execute on function public.claim_messages(public.message_channel, integer) to service_role;
 grant execute on function public.complete_message(uuid, text, text, text) to service_role;
 grant execute on function public.queue_vaccine_reminders(date) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- The outbox is not writable by staff. Before this, any staff login could
+-- insert or update `messages` directly, i.e. make the sender email anything
+-- to anyone, or re-send old mail. Now only the service role (Edge Functions)
+-- and the database's own functions write it; staff can still read it (owner
+-- pages) and admins can still delete rows.
+--
+-- accept_booking_request / decline_booking_request (security invoker, run as
+-- the staff member) queue their email through queue_request_email(), a
+-- narrow security definer helper: it builds the message itself from the
+-- request (and its booking, dog and owner), so the caller controls neither
+-- the recipient (the owner's or the form's address) nor the text, and it
+-- queues at most one email per request and template.
+-- ---------------------------------------------------------------------------
+drop policy "staff can insert" on public.messages;
+drop policy "staff can update" on public.messages;
+revoke insert, update, truncate, references, trigger on public.messages from authenticated;
+
+create function public.queue_request_email(p_request_id uuid) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_request  public.booking_requests;
+  v_booking  public.bookings;
+  v_dog      public.dogs;
+  v_owner    public.owners;
+  v_email    text;
+  v_template text;
+  v_id       uuid;
+begin
+  if not public.is_staff() then
+    raise exception 'only staff can handle requests' using errcode = '42501';
+  end if;
+  select * into v_request from public.booking_requests where id = p_request_id;
+  if not found then
+    raise exception 'request % not found', p_request_id using errcode = 'P0002';
+  end if;
+  v_template := case v_request.status
+                  when 'accepted' then 'request_accepted'
+                  when 'declined' then 'request_declined'
+                end;
+  if v_template is null then
+    raise exception 'request % is %: no email to queue', p_request_id, v_request.status using errcode = '22023';
+  end if;
+  if exists (select 1 from public.messages where request_id = p_request_id and template = v_template) then
+    return null; -- already queued once
+  end if;
+
+  if v_template = 'request_accepted' then
+    select * into v_booking from public.bookings where id = v_request.booking_id;
+    select * into v_dog from public.dogs where id = v_booking.dog_id;
+    select * into v_owner from public.owners where id = v_dog.owner_id;
+    if v_owner.id is null then
+      raise exception 'request % has no booked owner', p_request_id using errcode = '22023';
+    end if;
+    insert into public.messages (owner_id, request_id, recipient, template, language, data)
+    values (
+      v_owner.id, p_request_id, v_owner.email, v_template, v_owner.language,
+      jsonb_build_object(
+        'owner', v_owner.full_name,
+        'dog', v_dog.name,
+        'from', v_booking.start_date,
+        'to', v_booking.end_date,
+        'weekdays', to_jsonb(v_booking.weekdays),
+        'booking_status', v_booking.status
+      )
+    )
+    returning id into v_id;
+  else
+    v_email := nullif(trim(v_request.payload -> 'owner' ->> 'email'), '');
+    if v_email is null then
+      return null;
+    end if;
+    select * into v_owner from public.owners where lower(email) = lower(v_email);
+    insert into public.messages (owner_id, request_id, recipient, template, language, data)
+    values (
+      v_owner.id, p_request_id, coalesce(v_owner.email, v_email), v_template,
+      coalesce(v_owner.language,
+               case when v_request.payload ->> 'lang' = 'en' then 'en' else 'es' end::public.lang),
+      jsonb_build_object(
+        'owner', coalesce(v_owner.full_name, v_request.payload -> 'owner' ->> 'name'),
+        'dog', v_request.payload -> 'dog' ->> 'name',
+        'from', v_request.payload -> 'dates' ->> 'from',
+        'to', v_request.payload -> 'dates' ->> 'to',
+        'weekdays', v_request.payload -> 'dates' -> 'weekdays'
+      )
+    )
+    returning id into v_id;
+  end if;
+  return v_id;
+end $$;
+
+revoke execute on function public.queue_request_email(uuid) from anon, public;
+grant execute on function public.queue_request_email(uuid) to authenticated, service_role;
+
+-- The phase 2 request functions, unchanged except that their email now goes
+-- through queue_request_email().
+create or replace function public.accept_booking_request(
+  p_request_id uuid,
+  p_dog_id     uuid,
+  p_start_date date,
+  p_end_date   date,
+  p_weekdays   smallint[],
+  p_mode       text default 'confirm',
+  p_owner_id   uuid default null,
+  p_new_owner  jsonb default null,
+  p_new_dog    jsonb default null
+) returns public.bookings
+language plpgsql security invoker set search_path = '' as $$
+declare
+  v_request  public.booking_requests;
+  v_dog      public.dogs;
+  v_owner    public.owners;
+  v_booking  public.bookings;
+  v_email    text;
+  v_language text;
+  v_size     text;
+  v_sex      text;
+begin
+  if not public.is_staff() then
+    raise exception 'only staff can handle requests' using errcode = '42501';
+  end if;
+  if p_mode is null or p_mode not in ('confirm', 'overbook', 'pending') then
+    raise exception 'unknown mode %', p_mode using errcode = '22023', hint = 'bad_mode';
+  end if;
+  -- Exactly one way to name the dog, and (for a new dog) exactly one owner.
+  if (p_dog_id is null) = (p_new_dog is null) then
+    raise exception 'give either p_dog_id or p_new_dog' using errcode = '22023', hint = 'bad_input';
+  end if;
+  if p_dog_id is not null and (p_owner_id is not null or p_new_owner is not null) then
+    raise exception 'an existing dog already has an owner' using errcode = '22023', hint = 'bad_input';
+  end if;
+  if p_new_dog is not null and (p_owner_id is null) = (p_new_owner is null) then
+    raise exception 'give either p_owner_id or p_new_owner' using errcode = '22023', hint = 'bad_input';
+  end if;
+  if (p_new_dog is not null and jsonb_typeof(p_new_dog) <> 'object')
+     or (p_new_owner is not null and jsonb_typeof(p_new_owner) <> 'object') then
+    raise exception 'p_new_owner and p_new_dog must be objects' using errcode = '22023', hint = 'bad_input';
+  end if;
+
+  select * into v_request from public.booking_requests where id = p_request_id for update;
+  if not found then
+    raise exception 'request % not found', p_request_id using errcode = 'P0002';
+  end if;
+  if v_request.status <> 'new' then
+    raise exception 'request % was already handled', p_request_id
+      using errcode = '22023', hint = 'already_handled';
+  end if;
+
+  if p_dog_id is not null then
+    select * into v_dog from public.dogs where id = p_dog_id;
+    if not found then
+      raise exception 'dog % not found', p_dog_id using errcode = 'P0002';
+    end if;
+    select * into v_owner from public.owners where id = v_dog.owner_id;
+  else
+    if p_owner_id is not null then
+      select * into v_owner from public.owners where id = p_owner_id;
+      if not found then
+        raise exception 'owner % not found', p_owner_id using errcode = 'P0002';
+      end if;
+    else
+      v_email := public.jsonb_text_field(p_new_owner, 'email', true, 200);
+      if v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' then
+        raise exception 'field email is not an email address' using errcode = '22023', hint = 'bad_input';
+      end if;
+      v_language := coalesce(public.jsonb_text_field(p_new_owner, 'language'),
+                             case when v_request.payload ->> 'lang' = 'en' then 'en' else 'es' end);
+      if v_language not in ('es', 'en') then
+        raise exception 'field language must be es or en' using errcode = '22023', hint = 'bad_input';
+      end if;
+      insert into public.owners (full_name, email, phone, language, consent_at, notes)
+      values (
+        public.jsonb_text_field(p_new_owner, 'full_name', true, 120),
+        v_email,
+        public.jsonb_text_field(p_new_owner, 'phone', false, 40),
+        v_language::public.lang,
+        public.jsonb_text_field(p_new_owner, 'consent_at')::timestamptz,
+        public.jsonb_text_field(p_new_owner, 'notes')
+      )
+      returning * into v_owner;
+    end if;
+
+    v_size := public.jsonb_text_field(p_new_dog, 'size');
+    v_sex := public.jsonb_text_field(p_new_dog, 'sex');
+    if v_size is not null and v_size not in ('s', 'm', 'l') then
+      raise exception 'field size must be s, m or l' using errcode = '22023', hint = 'bad_input';
+    end if;
+    if v_sex is not null and v_sex not in ('m', 'f') then
+      raise exception 'field sex must be m or f' using errcode = '22023', hint = 'bad_input';
+    end if;
+    insert into public.dogs (owner_id, name, breed, age_text, size, sex, neutered,
+                             vaccines_up_to_date, medical_notes, behaviour_notes)
+    values (
+      v_owner.id,
+      public.jsonb_text_field(p_new_dog, 'name', true, 80),
+      public.jsonb_text_field(p_new_dog, 'breed', false, 80),
+      public.jsonb_text_field(p_new_dog, 'age_text', false, 40),
+      v_size::public.dog_size,
+      v_sex::public.dog_sex,
+      public.jsonb_bool_field(p_new_dog, 'neutered'),
+      public.jsonb_bool_field(p_new_dog, 'vaccines_up_to_date'),
+      public.jsonb_text_field(p_new_dog, 'medical_notes'),
+      public.jsonb_text_field(p_new_dog, 'behaviour_notes')
+    )
+    returning * into v_dog;
+  end if;
+
+  insert into public.bookings (dog_id, request_id, start_date, end_date, weekdays, status, notes)
+  values (v_dog.id, p_request_id, p_start_date, p_end_date, p_weekdays, 'pending',
+          nullif(trim(v_request.payload ->> 'notes'), ''))
+  returning * into v_booking;
+
+  if p_mode <> 'pending' then
+    v_booking := public.confirm_booking(v_booking.id, p_mode = 'overbook');
+  end if;
+
+  update public.booking_requests
+  set status = 'accepted', handled_by = auth.uid(), handled_at = now(), booking_id = v_booking.id
+  where id = p_request_id;
+
+  perform public.queue_request_email(p_request_id);
+
+  return v_booking;
+end $$;
+
+create or replace function public.decline_booking_request(
+  p_request_id uuid,
+  p_status     public.request_status default 'declined'
+) returns public.booking_requests
+language plpgsql security invoker set search_path = '' as $$
+declare
+  v_request public.booking_requests;
+begin
+  if not public.is_staff() then
+    raise exception 'only staff can handle requests' using errcode = '42501';
+  end if;
+  if p_status is null or p_status not in ('declined', 'spam') then
+    raise exception 'status must be declined or spam' using errcode = '22023', hint = 'bad_status';
+  end if;
+
+  select * into v_request from public.booking_requests where id = p_request_id for update;
+  if not found then
+    raise exception 'request % not found', p_request_id using errcode = 'P0002';
+  end if;
+  if v_request.status <> 'new' then
+    raise exception 'request % was already handled', p_request_id
+      using errcode = '22023', hint = 'already_handled';
+  end if;
+
+  update public.booking_requests
+  set status = p_status, handled_by = auth.uid(), handled_at = now()
+  where id = p_request_id
+  returning * into v_request;
+
+  if p_status = 'declined' then
+    perform public.queue_request_email(p_request_id);
+  end if;
+
+  return v_request;
+end $$;

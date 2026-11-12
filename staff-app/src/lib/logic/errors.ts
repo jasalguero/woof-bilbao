@@ -17,6 +17,7 @@ export type KnownError =
   | { kind: 'no_days' }
   | { kind: 'already_handled' }
   | { kind: 'attendance'; reason: AttendanceProblem }
+  | { kind: 'over_capacity'; count: number; max: number }
   | { kind: 'duplicate' }
   | { kind: 'forbidden' }
   | { kind: 'network' }
@@ -31,6 +32,10 @@ export function classifyError(err: unknown): KnownError {
   }
   if (e.hint === 'no_days' || message.includes('has no bookable days')) return { kind: 'no_days' };
   if (e.hint === 'already_handled') return { kind: 'already_handled' };
+  if (e.hint === 'over_capacity' || message.startsWith('no room today:')) {
+    const m = /(\d+)\s*\/\s*(\d+)/.exec(message);
+    return { kind: 'over_capacity', count: m ? +m[1] : 0, max: m ? +m[2] : 0 };
+  }
   if ((ATTENDANCE_HINTS as readonly string[]).includes(e.hint ?? '')) {
     return { kind: 'attendance', reason: e.hint as AttendanceProblem };
   }

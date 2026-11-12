@@ -1,6 +1,6 @@
 // Run with: deno test supabase/functions/send-messages/
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
-import { bearerMatches, classifyStatus, deliverBatch, type Email, type Outcome, type QueuedMessage, resendSender } from "./deliver.ts";
+import { bearerMatches, classifyStatus, deliverBatch, isPlainEmail, type Email, type Outcome, type QueuedMessage, resendSender } from "./deliver.ts";
 
 function msg(id: string, extra: Partial<QueuedMessage> = {}): QueuedMessage {
   return { id, recipient: `${id}@example.com`, template: "request_received", language: "es", data: { dog: "Txuri" }, attempts: 1, ...extra };
@@ -75,6 +75,14 @@ Deno.test("resendSender posts the email and reads the result", async () => {
   assertEquals(await resendSender("http://mock", "key", fake(422, '{"message":"Invalid `to` field"}'))(email), { outcome: "failed", error: "422 Invalid `to` field" });
   const broken = (() => Promise.reject(new TypeError("connection refused"))) as unknown as typeof fetch;
   assertEquals(await resendSender("http://mock", "key", broken)(email), { outcome: "retry", error: "network: connection refused" });
+});
+
+Deno.test("isPlainEmail accepts one plain address only", () => {
+  for (const ok of ["a@b.co", " ane.e+dog@example.com ", "x_y@sub.example.es"]) assertEquals(isPlainEmail(ok), true, ok);
+  for (const bad of [
+    "a@b.co, c@d.co", "a@b.co;c@d.co", "Eve <eve@x.com>", '"eve"@x.com', "a b@c.co", "a@b .co", "a\n@b.co",
+    "no-at.example.com", "a@nodot", "", null, 42,
+  ]) assertEquals(isPlainEmail(bad), false, String(bad));
 });
 
 Deno.test("bearerMatches only accepts the exact secret", () => {
