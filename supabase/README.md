@@ -20,7 +20,7 @@ Needs Docker and Node.js (for `npx`).
 ```sh
 npx supabase start            # starts Postgres, Auth, API, Storage, Edge Runtime
 npx supabase db reset         # applies migrations + seed.sql
-npx supabase test db          # 29 database tests
+npx supabase test db          # 70 database tests
 npx deno test supabase/functions/submit-booking/   # form validation tests
 npx supabase functions serve --no-verify-jwt       # serves the function on :54321
 ```
@@ -93,9 +93,21 @@ the check is skipped (fine for local development only).
   `booking_requests` row and queues emails in `messages`.
 - Emails are only queued for now. A sender function (Resend) comes once the
   email domain exists; until then staff see new requests in the app.
-- Staff use the desktop app (coming next) with their Supabase Auth login. Row-
+- Staff use the desktop app (`staff-app/`) with their Supabase Auth login. Row-
   level security lets them in only if they have a row in `staff`; admins can
   also change capacity, staff and delete records.
+- The app handles a request with one call each, so nothing is half-done:
+  `accept_booking_request(request, dog, start, end, weekdays, mode, owner_id,
+  new_owner, new_dog)` books an existing dog, or creates the new dog (for an
+  existing owner, or a new owner created in the same transaction; both are
+  validated jsonb), creates the booking, confirms it (`mode` `'confirm'`, failing with the capacity
+  error if a day is full; `'overbook'`; or `'pending'` to leave it pending),
+  marks the request accepted with `handled_by`/`handled_at`/`booking_id`, and
+  queues a `request_accepted` email in the owner's language.
+  `decline_booking_request(request, 'declined' | 'spam')` marks it and, for a
+  decline only, queues `request_declined` to the form's address. Both refuse a
+  request that is no longer `new`. `set_my_language(lang)` lets any staff
+  member change their own UI language (the `staff` table is admin-only).
 - Capacity is enforced by a trigger on `bookings`: a booking can only become
   `confirmed` (by `confirm_booking`, a direct update or an insert), or have a
   confirmed booking's dates moved, if every new day is under the daily

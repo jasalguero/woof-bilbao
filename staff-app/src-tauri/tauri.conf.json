@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Woof Bilbao Staff",
+  "version": "0.1.0",
+  "identifier": "com.woofbilbao.staff",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Woof Bilbao Staff",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "'self' ipc: http://ipc.localhost http://127.0.0.1:54321 ws://127.0.0.1:54321 https://*.supabase.co wss://*.supabase.co",
+        "img-src": "'self' data: blob: http://127.0.0.1:54321 https://*.supabase.co",
+        "style-src": "'self' 'unsafe-inline'"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Business",
+    "shortDescription": "Bookings and dogs for the Woof Bilbao team",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

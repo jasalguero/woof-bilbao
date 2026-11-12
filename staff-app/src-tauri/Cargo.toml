@@ -1,0 +1,23 @@
+[package]
+name = "woof-bilbao-staff"
+version = "0.1.0"
+description = "Woof Bilbao staff app"
+authors = ["Woof Bilbao"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the binary on Windows (cargo#8519).
+name = "woof_bilbao_staff_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-log = "2"
+tauri-plugin-window-state = "2"
+log = "0.4"
+# TODO(phase 3): tauri-plugin-updater for signed auto-updates.
+# TODO(phase 4): tauri-plugin-notification for new booking requests.

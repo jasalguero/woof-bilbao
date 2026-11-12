@@ -1,0 +1,54 @@
+name: Staff app
+
+on:
+  pull_request:
+    paths: ["staff-app/**", ".github/workflows/staff-app.yml"]
+  push:
+    paths: ["staff-app/**", ".github/workflows/staff-app.yml"]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: staff-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: staff-app/package-lock.json
+      - run: npm ci
+      - name: svelte-check
+        run: npm run check
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
+        env:
+          # Local-stack values from .env.example; the build only needs them to exist.
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
+
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install WebKit and friends (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config build-essential
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: staff-app/src-tauri
+      - name: cargo check
+        shell: bash
+        # generate_context! needs the frontend folder to exist; an empty one is enough for a check.
+        run: mkdir -p staff-app/build && cargo check --locked --manifest-path staff-app/src-tauri/Cargo.toml
