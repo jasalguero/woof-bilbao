@@ -1,15 +1,17 @@
 # WoofBilbao backend (Supabase)
 
 Everything the backend needs lives here: the database schema, its security
-rules, the `submit-booking` Edge Function for the public form, and tests.
-There is no server to run; Supabase hosts it all.
+rules, the `submit-booking` Edge Function for the public form, the
+`send-messages` Edge Function that emails owners, and tests. There is no
+server to run; Supabase hosts it all.
 
 ```
 supabase/
   config.toml                       local settings (public sign-ups disabled)
   migrations/                       schema, row-level security, capacity logic
   functions/submit-booking/         public booking form endpoint (+ unit tests)
-  tests/database/                   pgTAP tests for RLS and capacity
+  functions/send-messages/          email sender (Resend) + bilingual templates (+ unit tests)
+  tests/database/                   pgTAP tests (RLS, capacity, requests, attendance, outbox)
   seed.sql                          sample data for local development only
 ```
 
@@ -20,9 +22,9 @@ Needs Docker and Node.js (for `npx`).
 ```sh
 npx supabase start            # starts Postgres, Auth, API, Storage, Edge Runtime
 npx supabase db reset         # applies migrations + seed.sql
-npx supabase test db          # 70 database tests
-npx deno test supabase/functions/submit-booking/   # form validation tests
-npx supabase functions serve --no-verify-jwt       # serves the function on :54321
+npx supabase test db          # 151 database tests
+npx deno test supabase/functions/                  # form validation, email templates, sender
+npx supabase functions serve --no-verify-jwt       # serves the functions on :54321
 ```
 
 Local staff logins from `seed.sql`: `admin@woof.local` and `staff@woof.local`,
@@ -60,6 +62,7 @@ in mock-up mode until the hosted project exists.
    npx supabase secrets set ALLOWED_ORIGINS=https://your-domain STAFF_EMAIL=you@example.com
    npx supabase secrets set TURNSTILE_SECRET_KEY=... REQUIRE_TURNSTILE=true   # see below
    npx supabase functions deploy submit-booking --no-verify-jwt
+   npx supabase functions deploy send-messages --no-verify-jwt     # sends nothing until set up (below)
    ```
 5. Rebuild the website pointing at it:
    ```sh
@@ -88,11 +91,23 @@ the check is skipped (fine for local development only).
 
 ## How it fits together
 
+- Nobody writes the `messages` outbox from the app: staff can read it (and
+  admins delete), but INSERT and UPDATE are revoked from `authenticated`, so a
+  staff login can't make the sender email arbitrary text to anyone or re-send
+  old mail. Rows are written only by the service role (`submit-booking`,
+  `send-messages`) and by database functions. `accept_booking_request` and
+  `decline_booking_request` queue their email through
+  `queue_request_email(request)`, a narrow security definer helper that builds
+  the message itself from the request (recipient: the booked owner's address,
+  or the form's address for a decline), and queues at most one per request
+  and template.
 - The website never talks to tables: the `anon` role has no table access. The
   form posts JSON to `submit-booking`, which validates it, inserts a
   `booking_requests` row and queues emails in `messages`.
-- Emails are only queued for now. A sender function (Resend) comes once the
-  email domain exists; until then staff see new requests in the app.
+- Emails are queued in the `messages` outbox and delivered by `send-messages`
+  (see "Sending emails" below). Until the email domain exists and its secrets
+  are set, they just stay queued; staff still see every request in the app,
+  live.
 - Staff use the desktop app (`staff-app/`) with their Supabase Auth login. Row-
   level security lets them in only if they have a row in `staff`; admins can
   also change capacity, staff and delete records.
@@ -119,3 +134,146 @@ the check is skipped (fine for local development only).
   form, and `vaccines_checked_until` is an optional date staff can note. Neither
   blocks a booking.
 - Declined and spam requests are deleted after 90 days by a `pg_cron` job.
+- Staff check dogs in and out on the app's Today screen through
+  `check_in(dog, note?, walk_in?)`, `check_out(dog, note?)`,
+  `undo_check_in(dog)` and `undo_check_out(dog)`. They always use today's
+  date in Bilbao (`madrid_today()`), keep one `attendance` row per dog per day,
+  refuse weekends and closed days, and need `walk_in => true` for a dog with
+  no confirmed booking today (an active dog only). Walk-ins count against the
+  daily maximum: when today's dogs (every dog with an attendance row plus every
+  confirmed booked dog, each once) already reach `max_dogs_on(today)`, a
+  walk-in fails with `no room today: N/M` (hint `over_capacity`) unless
+  `allow_over => true`; the app asks first. Booked dogs never hit this (the
+  booking was already counted when it was confirmed). Repeating a check-in or
+  check-out is harmless. Errors carry a hint the app translates
+  (`closed_day`, `not_booked`, `inactive_dog`, `not_checked_in`,
+  `already_checked_out`). Undoing a check-in deletes today's row (the audit log
+  keeps it), which is why it is the one attendance delete plain staff can do.
+  (`madrid_today()` honours a `woof.today` setting so the database tests can
+  pretend it is a Monday; clients cannot set it.)
+- Realtime: `booking_requests` and `attendance` are in the `supabase_realtime`
+  publication. The app listens for new requests (badge, toast, desktop
+  notification) and attendance changes (Today stays in sync between staff).
+  Realtime applies each subscriber's RLS, so only staff receive rows; DELETE
+  events (only possible on attendance, via undo) carry nothing but the row id.
+- Vaccine reminders: every day at 07:00 UTC `queue_vaccine_reminders()` queues
+  a `vaccine_reminder` email for each active dog with a confirmed booking day
+  from today on whose owner didn't confirm vaccines, or whose "checked until"
+  date has passed or is within 14 days. At most one per dog every 30 days. It
+  never blocks a booking or a check-in.
+
+## Sending emails (`send-messages`)
+
+The database and the website only ever *queue* emails in `messages`
+(`request_received`, `new_request`, `request_accepted`, `request_declined`,
+`vaccine_reminder`). The `send-messages` Edge Function delivers them through
+[Resend](https://resend.com)'s HTTP API with Spanish and English templates
+(`functions/send-messages/templates.ts`).
+
+Every 5 minutes a `pg_cron` job (`send-messages`) calls the function through
+`pg_net`, but only when two Supabase Vault secrets exist and there is
+something queued. The function:
+
+- refuses callers without `Authorization: Bearer <SEND_MESSAGES_SECRET>`
+  (401). Gateway JWT checking is off (`verify_jwt = false`) because the caller
+  is the database, not a user, so this shared secret is what keeps the public
+  from triggering it;
+- does nothing (rows stay `queued`) while `RESEND_API_KEY` or `EMAIL_FROM` is
+  missing: that is the state until the domain exists;
+- claims up to 25 rows atomically (`claim_messages`: `queued` → `sending`,
+  `FOR UPDATE SKIP LOCKED`), so overlapping runs never send a row twice, and
+  sends each with an `Idempotency-Key` so Resend never duplicates one either;
+- marks each row `sent` (with `sent_at` and Resend's id in `provider_id`), or
+  puts it back to `queued` after a 5xx, 429 or network error (`attempts`
+  counts them; the third failure is final), or `failed` with the error for
+  anything else (bad address, unknown template). A row stuck in `sending` for
+  15 minutes (a run that died) is picked up again. If that happens after the
+  third attempt the row is failed with `unknown: no result after final attempt
+  (may have been sent; check Resend dashboard)`: the run died after calling
+  Resend but before recording the answer, so the email may well have gone
+  out. Look it up in the Resend dashboard (search by recipient) before
+  re-queueing it. Staff can see each owner's messages and their status on the
+  owner page;
+- does not send mail that has gone out of date; it is failed with error
+  `stale` instead. This matters most the day the sender is switched on, when
+  weeks of queued mail would otherwise all go at once:
+
+  | Template | Stale when |
+  |---|---|
+  | `vaccine_reminder` | queued more than 3 days ago, or its `next_day` has passed (a new one is queued after 30 days if still needed) |
+  | `request_received`, `new_request` | queued more than 7 days ago (a "we got it" that late is noise; staff see requests live in the app) |
+  | `request_accepted`, `request_declined` | the requested dates (`data.to`) have passed |
+
+### Setting it up (once the domain is bought)
+
+**Turnstile must be on before the sender goes live** (see "Spam protection"):
+otherwise anyone could use the booking form to make us email any address.
+
+1. In Resend, add the domain (Domains → Add domain, EU region), add the DNS
+   records it shows (SPF and DKIM; a DMARC record is a good idea too) at the
+   domain registrar, and wait until Resend says **Verified**.
+2. Create an API key with **sending access** only, limited to that domain.
+3. Set the function's secrets (use a long random shared secret):
+   ```sh
+   SECRET=$(openssl rand -hex 32)
+   npx supabase secrets set SEND_MESSAGES_SECRET=$SECRET RESEND_API_KEY=re_... \
+     EMAIL_FROM='Woof Bilbao <hola@your-domain>' EMAIL_REPLY_TO=hola@your-domain
+   npx supabase functions deploy send-messages --no-verify-jwt
+   ```
+4. Try it by hand; it answers with what it did:
+   ```sh
+   curl -X POST https://<project-ref>.supabase.co/functions/v1/send-messages \
+     -H "Authorization: Bearer $SECRET"
+   ```
+5. Turn on the schedule by storing the URL and the same secret in Vault (SQL
+   editor):
+   ```sql
+   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/send-messages', 'send_messages_url');
+   select vault.create_secret('<the same SEND_MESSAGES_SECRET>', 'send_messages_secret');
+   ```
+   To change one later: `select vault.update_secret(id, 'new value') from
+   vault.secrets where name = 'send_messages_secret';`. To pause sending,
+   delete either Vault secret, or unset `RESEND_API_KEY` (emails then wait in
+   the queue).
+6. Check it is working:
+   ```sql
+   select status, count(*) from messages group by 1;
+   select * from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'send-messages') order by start_time desc limit 5;
+   select id, status_code, content, error_msg from net._http_response order by id desc limit 5;
+   ```
+   To send a `failed` message again: `update messages set status = 'queued',
+   attempts = 0, error = null where id = '...';`.
+
+Why the schedule lives in a migration rather than a snippet to paste: the job
+and `invoke_send_messages()` are created everywhere by `db push`, are tested
+(pgTAP), and stay a no-op until the Vault secrets exist, so nothing can fire
+early and there is no manual SQL to forget or get wrong; the only manual step
+is storing two secrets. The URL and secret live in Vault, never in the
+migration or the repository.
+
+### Testing the sender locally
+
+No real credentials are needed. Point the function at a mock of Resend
+(any small HTTP server that answers `POST /emails` with `{"id": "..."}`):
+
+```sh
+cat > /tmp/send.env <<'ENV'
+SEND_MESSAGES_SECRET=local-test-secret
+RESEND_API_KEY=re_fake
+EMAIL_FROM=Woof Bilbao <hola@example.com>
+RESEND_API_URL=http://host.docker.internal:8787
+ENV
+npx supabase functions serve --no-verify-jwt --env-file /tmp/send.env
+curl -X POST http://127.0.0.1:54321/functions/v1/send-messages -H 'Authorization: Bearer local-test-secret'
+```
+
+To try the cron path too, store Vault secrets that the database container can
+reach (the API gateway's container name):
+
+```sql
+select vault.create_secret('http://supabase_kong_woof-bilbao:8000/functions/v1/send-messages', 'send_messages_url');
+select vault.create_secret('local-test-secret', 'send_messages_secret');
+select public.invoke_send_messages();   -- or wait for the next 5-minute tick
+```
+
+`npx supabase db reset` removes them again.

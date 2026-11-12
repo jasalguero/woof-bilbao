@@ -11,6 +11,3 @@ export const configured = Boolean(url && key);
 export const supabase = createClient<Database>(url || 'http://invalid.localhost', key || 'missing', {
   auth: { persistSession: true, autoRefreshToken: true }
 });
-
-// TODO(phase 4): subscribe to Realtime changes on booking_requests so new
-// requests appear (and notify) without a refresh.

@@ -62,3 +62,17 @@ export async function photoUrl(path: string): Promise<string | null> {
   }
   return data.signedUrl;
 }
+
+/** Signed URLs for several photos in one call (path -> url); missing ones are left out. */
+export async function photoUrls(paths: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(unique, 3600);
+  if (error || !data) {
+    console.warn('dog photos not available:', error?.message);
+    return new Map();
+  }
+  const urls = new Map<string, string>();
+  for (const d of data) if (d.path && d.signedUrl && !d.error) urls.set(d.path, d.signedUrl);
+  return urls;
+}

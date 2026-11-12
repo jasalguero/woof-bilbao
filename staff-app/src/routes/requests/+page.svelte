@@ -1,7 +1,8 @@
 <script lang="ts">
   import { listRequests, type RequestWithHandler } from '#lib/api/requests.ts';
   import { parsePayload } from '#lib/logic/prefill.ts';
-  import { refreshCounts } from '#lib/counts.svelte.ts';
+  import { untrack } from 'svelte';
+  import { counts, refreshCounts } from '#lib/counts.svelte.ts';
   import { t, fmtDate, fmtDateTime } from '#lib/i18n/index.svelte.ts';
   import { fail } from '#lib/toast.svelte.ts';
   import RequestDetail from '#lib/components/RequestDetail.svelte';
@@ -13,14 +14,19 @@
   let selectedId = $state<string | null>(null);
   const selected = $derived(rows.find((r) => r.id === selectedId) ?? null);
 
-  async function load() {
-    loading = true;
+  // Only the latest load may update the list (tab switches, live refreshes).
+  let loadToken = 0;
+  async function load(quiet = false) {
+    const token = ++loadToken;
+    const which = tab;
+    if (!quiet) loading = true;
     try {
-      rows = await listRequests(tab);
+      const list = await listRequests(which);
+      if (token === loadToken) rows = list;
     } catch (e) {
-      fail(e);
+      if (token === loadToken) fail(e);
     } finally {
-      loading = false;
+      if (token === loadToken) loading = false;
     }
   }
 
@@ -28,6 +34,11 @@
     void tab;
     selectedId = null;
     load();
+  });
+
+  // A new request arrived through Realtime: refresh the inbox in place.
+  $effect(() => {
+    if (counts.requestsVersion) untrack(() => tab === 'new' && load(true));
   });
 
   function handled() {

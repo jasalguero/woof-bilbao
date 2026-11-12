@@ -435,3 +435,12 @@ entrypoint = "./functions/submit-booking/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/submit-booking/*.html" ]
+
+# Called every 5 minutes by pg_cron (through pg_net), not by a logged-in user,
+# so the gateway's JWT check is off; the function instead requires the
+# SEND_MESSAGES_SECRET shared secret as a bearer token.
+[functions.send-messages]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-messages/deno.json"
+entrypoint = "./functions/send-messages/index.ts"

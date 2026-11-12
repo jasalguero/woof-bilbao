@@ -8,10 +8,16 @@ export interface DbErrorLike {
   details?: string | null;
 }
 
+/** Hints raised by check_in / check_out / undo_check_in / undo_check_out. */
+export const ATTENDANCE_HINTS = ['closed_day', 'not_booked', 'inactive_dog', 'not_checked_in', 'already_checked_out'] as const;
+export type AttendanceProblem = (typeof ATTENDANCE_HINTS)[number];
+
 export type KnownError =
   | { kind: 'full_days'; days: IsoDate[] }
   | { kind: 'no_days' }
   | { kind: 'already_handled' }
+  | { kind: 'attendance'; reason: AttendanceProblem }
+  | { kind: 'over_capacity'; count: number; max: number }
   | { kind: 'duplicate' }
   | { kind: 'forbidden' }
   | { kind: 'network' }
@@ -26,6 +32,13 @@ export function classifyError(err: unknown): KnownError {
   }
   if (e.hint === 'no_days' || message.includes('has no bookable days')) return { kind: 'no_days' };
   if (e.hint === 'already_handled') return { kind: 'already_handled' };
+  if (e.hint === 'over_capacity' || message.startsWith('no room today:')) {
+    const m = /(\d+)\s*\/\s*(\d+)/.exec(message);
+    return { kind: 'over_capacity', count: m ? +m[1] : 0, max: m ? +m[2] : 0 };
+  }
+  if ((ATTENDANCE_HINTS as readonly string[]).includes(e.hint ?? '')) {
+    return { kind: 'attendance', reason: e.hint as AttendanceProblem };
+  }
   if (e.code === '23505') return { kind: 'duplicate' };
   if (e.code === '42501') return { kind: 'forbidden' };
   if (/failed to fetch|networkerror|load failed/i.test(message)) return { kind: 'network' };

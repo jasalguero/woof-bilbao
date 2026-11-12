@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dictionaries, en, es } from './dict';
 import { formatDate, interpolate, placeholders, translate } from './format';
+import { ATTENDANCE_HINTS } from '../logic/errors';
 
 describe('i18n dictionaries', () => {
   const keys = (o: object) => Object.keys(o).sort();
@@ -23,10 +24,11 @@ describe('i18n dictionaries', () => {
 
   it('has labels for every enum value the UI shows', () => {
     const needed = [
-      ...['new', 'accepted', 'declined', 'spam', 'pending', 'confirmed', 'cancelled', 'queued', 'sent', 'failed'].map((s) => `status.${s}`),
+      ...['new', 'accepted', 'declined', 'spam', 'pending', 'confirmed', 'cancelled', 'queued', 'sending', 'sent', 'failed'].map((s) => `status.${s}`),
       ...['s', 'm', 'l'].map((s) => `size.${s}`),
       ...['m', 'f'].map((s) => `sex.${s}`),
       ...[1, 2, 3, 4, 5].map((d) => `wd.${d}`),
+      ...ATTENDANCE_HINTS.map((h) => `error.attendance.${h}`),
       'lang.es', 'lang.en'
     ];
     for (const k of needed) expect(es, k).toHaveProperty([k]);

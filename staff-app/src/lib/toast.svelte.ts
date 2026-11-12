@@ -5,7 +5,7 @@ import { t, fmtDate } from './i18n/index.svelte';
 
 export interface Toast {
   id: number;
-  kind: 'ok' | 'error';
+  kind: 'ok' | 'info' | 'error';
   text: string;
 }
 
@@ -27,6 +27,11 @@ export function ok(text: string) {
   push('ok', text, 3500);
 }
 
+/** Something happened elsewhere (e.g. a new booking request arrived). */
+export function notice(text: string) {
+  push('info', text, 8000);
+}
+
 /** A friendly sentence for any error from supabase-js or the database. */
 export function describeError(err: unknown): string {
   const e = classifyError(err);
@@ -37,6 +42,10 @@ export function describeError(err: unknown): string {
       return t('error.noDays');
     case 'already_handled':
       return t('error.alreadyHandled');
+    case 'over_capacity':
+      return t('error.overCapacity', { count: e.count, max: e.max });
+    case 'attendance':
+      return t(`error.attendance.${e.reason}`);
     case 'duplicate':
       return t('error.duplicate');
     case 'forbidden':
