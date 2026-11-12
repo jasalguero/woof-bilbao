@@ -97,12 +97,17 @@ create index dogs_owner_id_idx on public.dogs (owner_id);
 create table public.booking_requests (
   id         uuid primary key default gen_random_uuid(),
   payload    jsonb not null,
+  -- Sender's IP, kept for throttling abuse; purged with the request.
+  client_ip  inet,
   status     public.request_status not null default 'new',
   created_at timestamptz not null default now(),
   handled_by uuid references public.staff (user_id) on delete set null,
   handled_at timestamptz
 );
 create index booking_requests_status_idx on public.booking_requests (status, created_at desc);
+-- Used by submit-booking to throttle repeat submissions per email and per IP.
+create index booking_requests_email_idx on public.booking_requests ((payload -> 'owner' ->> 'email'), created_at);
+create index booking_requests_ip_idx on public.booking_requests (client_ip, created_at);
 
 create table public.bookings (
   id         uuid primary key default gen_random_uuid(),
@@ -135,7 +140,7 @@ create table public.attendance (
   id             uuid primary key default gen_random_uuid(),
   booking_id     uuid references public.bookings (id) on delete set null,
   dog_id         uuid not null references public.dogs (id) on delete cascade,
-  day            date not null default current_date,
+  day            date not null default (now() at time zone 'Europe/Madrid')::date,
   checked_in_at  timestamptz,
   checked_out_at timestamptz,
   checked_in_by  uuid default auth.uid(),
@@ -190,6 +195,7 @@ create table public.messages (
   sent_at    timestamptz
 );
 create index messages_queued_idx on public.messages (created_at) where status = 'queued';
+create index messages_recipient_idx on public.messages (recipient, template, created_at);
 
 -- ---------------------------------------------------------------------------
 -- Audit log
@@ -255,36 +261,115 @@ select
   d::date   as day,
   b.status
 from public.bookings b
-cross join lateral generate_series(b.start_date, b.end_date, interval '1 day') as d
+cross join lateral generate_series(b.start_date::timestamp, b.end_date::timestamp, interval '1 day') as d
 where b.status <> 'cancelled'
   and extract(isodow from d)::smallint = any (b.weekdays)
   and not exists (
     select 1 from public.capacity c where c.day = d::date and c.closed
   );
 
+-- Counts distinct dogs, so a dog with two overlapping bookings counts once.
 create view public.daily_occupancy with (security_invoker = true) as
 select
   bd.day,
-  count(*) filter (where bd.status = 'confirmed')                  as confirmed,
-  count(*) filter (where bd.status = 'pending')                    as pending,
-  count(*) filter (where bd.status = 'confirmed' and g.size = 's') as confirmed_small,
-  count(*) filter (where bd.status = 'confirmed' and g.size = 'm') as confirmed_medium,
-  count(*) filter (where bd.status = 'confirmed' and g.size = 'l') as confirmed_large,
+  count(distinct bd.dog_id) filter (where bd.status = 'confirmed')                  as confirmed,
+  count(distinct bd.dog_id) filter (where bd.status = 'pending')                    as pending,
+  count(distinct bd.dog_id) filter (where bd.status = 'confirmed' and g.size = 's') as confirmed_small,
+  count(distinct bd.dog_id) filter (where bd.status = 'confirmed' and g.size = 'm') as confirmed_medium,
+  count(distinct bd.dog_id) filter (where bd.status = 'confirmed' and g.size = 'l') as confirmed_large,
   public.max_dogs_on(bd.day)                                       as max_dogs
 from public.booking_days bd
 join public.dogs g on g.id = bd.dog_id
 group by bd.day;
 
 -- ---------------------------------------------------------------------------
--- confirm_booking: confirms a booking only if every one of its days still has
--- room. Confirmations are serialised so two staff can't overbook together.
+-- Capacity invariant. A booking can only become (or stay, when its dates
+-- change) 'confirmed' if every one of its days still has room, however the
+-- change is made: confirm_booking, a direct UPDATE or an INSERT. The check
+-- takes one advisory lock so two staff can't overbook together.
+--
+-- Deliberate overbooking: set `woof.allow_overbook` to 'on' for the current
+-- transaction (confirm_booking(id, true) does this for you).
 -- ---------------------------------------------------------------------------
+create function public.check_booking_capacity() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_days date[];
+  v_full date[];
+begin
+  if new.status <> 'confirmed' then
+    return new;
+  end if;
+  -- Already confirmed and nothing that affects capacity changed.
+  if tg_op = 'UPDATE' and old.status = 'confirmed'
+     and new.dog_id = old.dog_id
+     and new.start_date = old.start_date
+     and new.end_date = old.end_date
+     and new.weekdays = old.weekdays then
+    return new;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('public.confirm_booking'));
+
+  -- This booking's days, by the same rules as the booking_days view.
+  v_days := array(
+    select d::date
+    from generate_series(new.start_date::timestamp, new.end_date::timestamp, interval '1 day') as d
+    where extract(isodow from d)::smallint = any (new.weekdays)
+      and not exists (select 1 from public.capacity c where c.day = d::date and c.closed)
+  );
+  if cardinality(v_days) = 0 then
+    raise exception 'booking % has no bookable days', new.id
+      using errcode = '22023', hint = 'no_days';
+  end if;
+
+  if coalesce(current_setting('woof.allow_overbook', true), '') = 'on' then
+    return new;
+  end if;
+
+  -- When a confirmed booking is edited, only the days it gains need room.
+  if tg_op = 'UPDATE' and old.status = 'confirmed' then
+    v_days := array(
+      select unnest(v_days)
+      except
+      select d::date
+      from generate_series(old.start_date::timestamp, old.end_date::timestamp, interval '1 day') as d
+      where old.dog_id = new.dog_id and extract(isodow from d)::smallint = any (old.weekdays)
+    );
+  end if;
+
+  -- A day is full when the other confirmed dogs (counted once each, however
+  -- many bookings they have) already fill it, unless this dog is already
+  -- confirmed there through another booking and so adds nobody.
+  select array_agg(mine.day order by mine.day) into v_full
+  from unnest(v_days) as mine (day)
+  where not exists (
+          select 1 from public.booking_days own
+          where own.day = mine.day and own.status = 'confirmed'
+            and own.dog_id = new.dog_id and own.booking_id <> new.id)
+    and (
+          select count(distinct other.dog_id) from public.booking_days other
+          where other.day = mine.day and other.status = 'confirmed'
+            and other.dog_id <> new.dog_id and other.booking_id <> new.id
+        ) >= public.max_dogs_on(mine.day);
+
+  if v_full is not null then
+    raise exception 'no room on: %', array_to_string(v_full, ', ')
+      using errcode = 'P0001', hint = 'full_days';
+  end if;
+  return new;
+end $$;
+
+create trigger bookings_capacity before insert or update on public.bookings
+  for each row execute function public.check_booking_capacity();
+
+-- confirm_booking: staff entry point. The trigger above does the capacity
+-- check; p_allow_overbook switches it off for this one confirmation.
 create function public.confirm_booking(p_booking_id uuid, p_allow_overbook boolean default false)
 returns public.bookings
 language plpgsql security invoker set search_path = '' as $$
 declare
   v_booking public.bookings;
-  v_full    date[];
 begin
   if not public.is_staff() then
     raise exception 'only staff can confirm bookings' using errcode = '42501';
@@ -303,25 +388,14 @@ begin
     raise exception 'booking % is cancelled', p_booking_id using errcode = '22023';
   end if;
 
-  if not p_allow_overbook then
-    select array_agg(mine.day order by mine.day) into v_full
-    from public.booking_days mine
-    where mine.booking_id = p_booking_id
-      and (
-        select count(*) from public.booking_days other
-        where other.day = mine.day
-          and other.status = 'confirmed'
-          and other.booking_id <> p_booking_id
-      ) >= public.max_dogs_on(mine.day);
-
-    if v_full is not null then
-      raise exception 'no room on: %', array_to_string(v_full, ', ')
-        using errcode = 'P0001', hint = 'full_days';
-    end if;
+  if p_allow_overbook then
+    perform set_config('woof.allow_overbook', 'on', true);
   end if;
-
   update public.bookings set status = 'confirmed' where id = p_booking_id
   returning * into v_booking;
+  if p_allow_overbook then
+    perform set_config('woof.allow_overbook', 'off', true);
+  end if;
   return v_booking;
 end $$;
 
@@ -373,7 +447,9 @@ alter default privileges in schema public revoke execute on functions from anon,
 -- ---------------------------------------------------------------------------
 -- Storage: private bucket for dog photos and documents, staff only.
 -- ---------------------------------------------------------------------------
-insert into storage.buckets (id, name, public) values ('dog-files', 'dog-files', false)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('dog-files', 'dog-files', false, 10485760,
+        array['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
 on conflict (id) do nothing;
 
 create policy "staff can read dog files" on storage.objects for select to authenticated

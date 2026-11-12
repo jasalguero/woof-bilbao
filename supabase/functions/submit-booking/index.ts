@@ -6,12 +6,24 @@
 // Secrets (set with `supabase secrets set`):
 //   ALLOWED_ORIGINS       comma-separated origins allowed by CORS (default: *)
 //   TURNSTILE_SECRET_KEY  Cloudflare Turnstile secret; when unset, the check is skipped
+//                         unless REQUIRE_TURNSTILE is true
+//   REQUIRE_TURNSTILE     "true" = refuse every submission while the secret is missing
 //   STAFF_EMAIL           where new-request notifications go (optional)
-import { validate } from "./validate.ts";
+//
+// Abuse controls: a honeypot field (`hp_extra`), a minimum time on the page
+// before submitting, throttling per email and per IP, and at most one owner
+// confirmation email per address every 30 minutes.
+import { cleanIp, validate } from "./validate.ts";
 
 const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "*").split(",").map((s) => s.trim()).filter(Boolean);
 const turnstileSecret = Deno.env.get("TURNSTILE_SECRET_KEY");
+const requireTurnstile = Deno.env.get("REQUIRE_TURNSTILE") === "true";
 const staffEmail = Deno.env.get("STAFF_EMAIL");
+
+const MIN_FILL_MS = 3000; // faster than this is a bot
+const MAX_PER_EMAIL_PER_HOUR = 3;
+const MAX_PER_IP_PER_HOUR = 10;
+const CONFIRMATION_EMAIL_GAP_MS = 30 * 60 * 1000;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -31,6 +43,18 @@ async function insert<T>(table: string, rows: unknown): Promise<T[]> {
   });
   if (!res.ok) throw new Error(`insert into ${table} failed: ${res.status} ${await res.text()}`);
   return await res.json();
+}
+
+// Counts rows matching PostgREST filters, e.g. { created_at: "gte.2026-..." }.
+async function count(table: string, filters: Record<string, string>): Promise<number> {
+  const qs = new URLSearchParams({ select: "id", ...filters });
+  const res = await fetch(`${supabaseUrl}/rest/v1/${table}?${qs}`, {
+    method: "HEAD",
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, Prefer: "count=exact" },
+  });
+  const total = Number(res.headers.get("content-range")?.split("/")[1]);
+  if (!res.ok || !Number.isFinite(total)) throw new Error(`count on ${table} failed: ${res.status}`);
+  return total;
 }
 
 function cors(req: Request): Record<string, string> {
@@ -57,7 +81,10 @@ function madridToday(): string {
 }
 
 async function turnstileOk(token: unknown, ip: string | null): Promise<boolean> {
-  if (!turnstileSecret) return true;
+  if (!turnstileSecret) {
+    if (requireTurnstile) console.error("REQUIRE_TURNSTILE is set but TURNSTILE_SECRET_KEY is missing");
+    return !requireTurnstile;
+  }
   if (typeof token !== "string" || !token) return false;
   const form = new FormData();
   form.append("secret", turnstileSecret);
@@ -77,19 +104,28 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
   if (req.method !== "POST") return json(req, 405, { ok: false, error: "method_not_allowed" });
 
-  let body: Record<string, unknown>;
+  let parsed: unknown;
   try {
-    body = await req.json();
+    parsed = await req.json();
   } catch {
     return json(req, 400, { ok: false, error: "invalid_json" });
   }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return json(req, 400, { ok: false, error: "invalid_json" });
+  }
+  const body = parsed as Record<string, unknown>;
 
-  // Honeypot: real people never fill the hidden "website" field. Pretend success.
-  if (typeof body.website === "string" && body.website.trim() !== "") {
+  // Bots: real people never fill the hidden `hp_extra` field, and take more
+  // than a few seconds to fill the form (the page sends `elapsed_ms`).
+  // Pretend success so they don't adapt; nothing is stored.
+  if (typeof body.hp_extra === "string" && body.hp_extra.trim() !== "") {
+    return json(req, 201, { ok: true });
+  }
+  if (typeof body.elapsed_ms !== "number" || !(body.elapsed_ms >= MIN_FILL_MS)) {
     return json(req, 201, { ok: true });
   }
 
-  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = cleanIp(req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]);
   if (!(await turnstileOk(body["cf-turnstile-response"], ip))) {
     return json(req, 403, { ok: false, error: "captcha" });
   }
@@ -98,10 +134,32 @@ Deno.serve(async (req) => {
   if (!result.ok) return json(req, 422, { ok: false, error: "invalid", fields: result.errors });
   const r = result.value;
 
+  const now = Date.now();
+  const hourAgo = "gte." + new Date(now - 3600_000).toISOString();
+  let recentConfirmation = 0;
+  try {
+    const [byEmail, byIp] = await Promise.all([
+      count("booking_requests", { "payload->owner->>email": `eq.${r.owner.email}`, created_at: hourAgo }),
+      ip ? count("booking_requests", { client_ip: `eq.${ip}`, created_at: hourAgo }) : Promise.resolve(0),
+    ]);
+    if (byEmail >= MAX_PER_EMAIL_PER_HOUR || byIp >= MAX_PER_IP_PER_HOUR) {
+      return json(req, 429, { ok: false, error: "too_many_requests" });
+    }
+    recentConfirmation = await count("messages", {
+      recipient: `eq.${r.owner.email}`,
+      template: "eq.request_received",
+      created_at: "gte." + new Date(now - CONFIRMATION_EMAIL_GAP_MS).toISOString(),
+    });
+  } catch (e) {
+    console.error(e);
+    return json(req, 500, { ok: false, error: "server" });
+  }
+
   let row: { id: string };
   try {
     [row] = await insert<{ id: string }>("booking_requests", {
-      payload: { ...r, submitted_at: new Date().toISOString() },
+      payload: { ...r, submitted_at: new Date(now).toISOString() },
+      client_ip: ip,
     });
   } catch (e) {
     console.error(e);
@@ -109,16 +167,20 @@ Deno.serve(async (req) => {
   }
 
   const summary = { owner: r.owner.name, dog: r.dog.name, from: r.dates.from, to: r.dates.to, weekdays: r.dates.weekdays };
-  const messages = [
-    { request_id: row.id, recipient: r.owner.email, template: "request_received", language: r.lang, data: summary },
-  ];
+  const messages: Record<string, unknown>[] = [];
+  // One "we got your request" email per address per half hour is enough.
+  if (recentConfirmation === 0) {
+    messages.push({ request_id: row.id, recipient: r.owner.email, template: "request_received", language: r.lang, data: summary });
+  }
   if (staffEmail) {
     messages.push({ request_id: row.id, recipient: staffEmail, template: "new_request", language: "es", data: summary });
   }
-  try {
-    await insert("messages", messages);
-  } catch (e) {
-    console.error(e); // the request itself is saved; staff still see it in the app
+  if (messages.length) {
+    try {
+      await insert("messages", messages);
+    } catch (e) {
+      console.error(e); // the request itself is saved; staff still see it in the app
+    }
   }
 
   return json(req, 201, { ok: true, id: row.id });

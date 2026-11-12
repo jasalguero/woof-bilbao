@@ -1,6 +1,6 @@
 // Run with: deno test supabase/functions/submit-booking/
 import { assertEquals } from "jsr:@std/assert@1";
-import { validate } from "./validate.ts";
+import { cleanIp, validate } from "./validate.ts";
 
 const TODAY = "2026-11-11";
 const good = {
@@ -45,4 +45,51 @@ Deno.test("rejects dates in the past, reversed, impossible or too far ahead", ()
 Deno.test("rejects weekend-only and bad enum values", () => {
   const r = validate({ ...good, weekdays: [6, 7], size: "xl", sex: "x" }, TODAY);
   assertEquals(r.ok ? [] : r.errors, ["size", "sex", "weekdays"]);
+});
+
+Deno.test("rejects a date range with none of the chosen weekdays", () => {
+  // 2026-11-21/22 is a weekend; 2026-11-17 is a Tuesday.
+  const errs = (from: string, to: string, weekdays: number[]) => {
+    const r = validate({ ...good, from, to, weekdays }, TODAY);
+    return r.ok ? [] : r.errors;
+  };
+  assertEquals(errs("2026-11-21", "2026-11-22", [1, 2, 3, 4, 5]), ["weekdays"]);
+  assertEquals(errs("2026-11-17", "2026-11-17", [1, 3]), ["weekdays"]);
+  assertEquals(errs("2026-11-17", "2026-11-17", [2]), []);
+  assertEquals(errs("2026-11-21", "2026-11-23", [1]), []);
+});
+
+Deno.test("checks raw values strictly instead of trimming or truncating them", () => {
+  const errs = (patch: Record<string, unknown>) => {
+    const r = validate({ ...good, ...patch }, TODAY);
+    return r.ok ? [] : r.errors;
+  };
+  assertEquals(errs({ size: "mx" }), ["size"]);
+  assertEquals(errs({ size: " m" }), ["size"]);
+  assertEquals(errs({ size: "M" }), ["size"]);
+  assertEquals(errs({ sex: "female" }), ["sex"]);
+  assertEquals(errs({ sex: "" }), []);
+  assertEquals(errs({ sex: null }), []);
+  assertEquals(errs({ from: "2026-11-16xyz" }), ["from"]);
+  assertEquals(errs({ from: " 2026-11-16" }), ["from"]);
+  assertEquals(errs({ to: "2026-11-200" }), ["to"]);
+  assertEquals(errs({ email: "a".repeat(190) + "@example.com" }), ["email"]);
+  assertEquals(errs({ email: " ane@example.com " }), []);
+});
+
+Deno.test("treats non-object input as empty", () => {
+  for (const input of [null, [], 5, "x"]) {
+    const r = validate(input, TODAY);
+    assertEquals(r.ok, false);
+  }
+});
+
+Deno.test("cleanIp keeps only well-formed addresses", () => {
+  assertEquals(cleanIp(" 203.0.113.7 "), "203.0.113.7");
+  assertEquals(cleanIp("2001:db8::1"), "2001:db8::1");
+  assertEquals(cleanIp("256.1.1.1"), null);
+  assertEquals(cleanIp("1.2.3"), null);
+  assertEquals(cleanIp(":::::"), null);
+  assertEquals(cleanIp("unknown"), null);
+  assertEquals(cleanIp(null), null);
 });

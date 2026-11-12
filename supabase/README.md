@@ -20,7 +20,7 @@ Needs Docker and Node.js (for `npx`).
 ```sh
 npx supabase start            # starts Postgres, Auth, API, Storage, Edge Runtime
 npx supabase db reset         # applies migrations + seed.sql
-npx supabase test db          # 19 database tests
+npx supabase test db          # 29 database tests
 npx deno test supabase/functions/submit-booking/   # form validation tests
 npx supabase functions serve --no-verify-jwt       # serves the function on :54321
 ```
@@ -58,7 +58,7 @@ in mock-up mode until the hosted project exists.
 4. Set the function's secrets and deploy it:
    ```sh
    npx supabase secrets set ALLOWED_ORIGINS=https://your-domain STAFF_EMAIL=you@example.com
-   npx supabase secrets set TURNSTILE_SECRET_KEY=...   # optional, see below
+   npx supabase secrets set TURNSTILE_SECRET_KEY=... REQUIRE_TURNSTILE=true   # see below
    npx supabase functions deploy submit-booking --no-verify-jwt
    ```
 5. Rebuild the website pointing at it:
@@ -67,12 +67,24 @@ in mock-up mode until the hosted project exists.
    WOOF_TURNSTILE_SITE_KEY=... python3 tools/build.py
    ```
 
-### Spam protection (optional but recommended)
+### Spam protection
 
-The form has a hidden honeypot field already. For stronger protection, create
-a free Cloudflare Turnstile widget for your domain, then set
-`WOOF_TURNSTILE_SITE_KEY` when building the site and `TURNSTILE_SECRET_KEY` as
-a function secret. Without the secret, the function skips the check.
+Built in, no setup needed:
+
+- a hidden honeypot field (`hp_extra`) and a minimum of 3 seconds between the
+  page loading and the form being sent; bots that trip either get a fake
+  success and nothing is stored;
+- throttling: more than 3 requests from one email address, or 10 from one IP,
+  in an hour get `429 Too Many Requests`;
+- at most one "we got your request" email per address every 30 minutes.
+
+**Cloudflare Turnstile is required before the email sender goes live**:
+without it, anyone can make the function email arbitrary addresses. Create a
+free Turnstile widget for your domain, set `WOOF_TURNSTILE_SITE_KEY` when
+building the site and `TURNSTILE_SECRET_KEY` as a function secret, and set
+`REQUIRE_TURNSTILE=true` so the function refuses every submission if the
+secret ever goes missing. Without `REQUIRE_TURNSTILE`, a missing secret means
+the check is skipped (fine for local development only).
 
 ## How it fits together
 
@@ -84,10 +96,13 @@ a function secret. Without the secret, the function skips the check.
 - Staff use the desktop app (coming next) with their Supabase Auth login. Row-
   level security lets them in only if they have a row in `staff`; admins can
   also change capacity, staff and delete records.
-- `confirm_booking(booking_id)` confirms a booking only if every one of its
-  days is under the daily maximum (`capacity`), and serialises confirmations
-  so two people can't overbook together. Pass `true` as the second argument
-  to overbook on purpose.
+- Capacity is enforced by a trigger on `bookings`: a booking can only become
+  `confirmed` (by `confirm_booking`, a direct update or an insert), or have a
+  confirmed booking's dates moved, if every new day is under the daily
+  maximum (`capacity`), counting each dog once. Checks are serialised so two
+  people can't overbook together, and a booking with no bookable days can't
+  be confirmed. `confirm_booking(booking_id, true)` overbooks on purpose (it
+  sets `woof.allow_overbook` for that one change).
 - Vaccines are relaxed: `dogs.vaccines_up_to_date` is the owner's word from the
   form, and `vaccines_checked_until` is an optional date staff can note. Neither
   blocks a booking.

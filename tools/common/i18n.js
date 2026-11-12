@@ -43,6 +43,8 @@
       ok_title_sent: "¡Solicitud enviada!", ok_text_sent: "Gracias. La revisaremos y te escribiremos para confirmar la plaza. Resumen de lo que has enviado:",
       f_sending: "Enviando…", err_send: "No hemos podido enviar la solicitud. Inténtalo de nuevo en unos minutos.",
       err_captcha: "No hemos podido comprobar que no eres un robot. Recarga la página e inténtalo de nuevo.",
+      err_dates_days: "Revisa las fechas y los días elegidos.",
+      err_throttle: "Has enviado demasiadas solicitudes. Inténtalo de nuevo más tarde.",
       ok_again: "Editar solicitud",
       bubble_hero: "¡Guau! ¿Vienes a jugar?", polo_say: "¡Hola, soy Polo!", daisy_say: "¡Y yo soy Daisy!",
       cap_day: "Mientras tanto, en Woof Bilbao…", cap_book: "¡Tu perro, el próximo protagonista!", burst: "¡Guau!",
@@ -91,6 +93,8 @@
       ok_title_sent: "Request sent!", ok_text_sent: "Thank you. We will review it and email you to confirm the spot. Summary of what you sent:",
       f_sending: "Sending…", err_send: "We couldn't send your request. Please try again in a few minutes.",
       err_captcha: "We couldn't verify you're not a robot. Reload the page and try again.",
+      err_dates_days: "Please check the dates and days you picked.",
+      err_throttle: "Too many requests. Please try again later.",
       ok_again: "Edit request",
       bubble_hero: "Woof! Coming to play?", polo_say: "Hi, I'm Polo!", daisy_say: "And I'm Daisy!",
       cap_day: "Meanwhile, at Woof Bilbao…", cap_book: "Your dog could be our next star!", burst: "Woof!",
@@ -116,7 +120,10 @@
   // Set at build time from WOOF_BOOKING_URL (see tools/build.py). Empty = mock-up mode.
   var BOOKING_URL = "{{BOOKING_URL}}";
   var form = document.getElementById("booking");
-  var today = new Date().toISOString().slice(0, 10);
+  // Local calendar date (toISOString would give the UTC date).
+  var now = new Date(), renderedAt = Date.now();
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  var today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
   if (form) {
     form.elements.from.min = today; form.elements.to.min = today;
     var err = document.getElementById("form-error"), ok = document.getElementById("form-ok");
@@ -136,7 +143,7 @@
       ok.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     function payload() {
-      var d = new FormData(form), out = { lang: lang, weekdays: [] };
+      var d = new FormData(form), out = { lang: lang, weekdays: [], elapsed_ms: Date.now() - renderedAt };
       d.forEach(function (v, k) { if (/^d[1-5]$/.test(k)) out.weekdays.push(Number(k.slice(1))); else out[k] = v; });
       return out;
     }
@@ -151,7 +158,10 @@
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (b) { return { status: res.status, body: b }; }); })
         .then(function (r) {
           if (r.status === 201 && r.body.ok) { done(true); return; }
-          fail(r.status === 403 ? "err_captcha" : r.status === 422 ? "err_req" : "err_send");
+          var fields = (r.body && r.body.fields) || [];
+          var datesWrong = fields.some(function (f) { return f === "from" || f === "to" || f === "weekdays"; });
+          fail(r.status === 403 ? "err_captcha" : r.status === 429 ? "err_throttle"
+            : r.status === 422 ? (datesWrong ? "err_dates_days" : "err_req") : "err_send");
         })
         .catch(function () { fail("err_send"); })
         .then(function () {
