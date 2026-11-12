@@ -13,6 +13,11 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         // Desktop notifications when a new booking request arrives.
         .plugin(tauri_plugin_notification::init())
+        // Signed auto-updates: the UI checks GitHub Releases for latest.json
+        // (endpoint and public key in tauri.conf.json), downloads, installs...
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        // ...and relaunches the app with the process plugin.
+        .plugin(tauri_plugin_process::init())
         .run(tauri::generate_context!())
         .expect("error while running the Woof Bilbao staff app");
 }

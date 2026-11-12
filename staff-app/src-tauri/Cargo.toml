@@ -21,4 +21,9 @@ tauri-plugin-window-state = "2"
 # Desktop notifications for new booking requests.
 tauri-plugin-notification = "2"
 log = "0.4"
-# TODO(phase 3): tauri-plugin-updater for signed auto-updates.
+# generate_context! emits serde_json for the `plugins` section of tauri.conf.json.
+serde_json = "1"
+# Signed auto-updates from GitHub Releases (see README "Releases and updates"),
+# and relaunching the app after an update is installed.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"

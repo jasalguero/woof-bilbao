@@ -10,6 +10,8 @@
   import { todayIso } from '#lib/logic/dates.ts';
   import type { Capacity, Staff, StaffRole } from '#lib/types.ts';
   import { fail, ok } from '#lib/toast.svelte.ts';
+  import { updater, checkForUpdates, installUpdate } from '#lib/updater.svelte.ts';
+  import { displayVersion, isBusy } from '#lib/logic/updates.ts';
 
   let maxDogs = $state<number | null>(null);
   let closedDays = $state<Capacity[]>([]);
@@ -98,6 +100,34 @@
       <option value="es">{t('lang.es')}</option>
       <option value="en">{t('lang.en')}</option>
     </select>
+  </section>
+
+  <section class="card stack" data-testid="app-version-card">
+    <h2>{t('update.section')}</h2>
+    <p><strong data-testid="app-version">{t('update.version', { version: displayVersion(updater.version) })}</strong></p>
+    {#if updater.desktop}
+      {@const u = updater.state}
+      <div class="row">
+        <button onclick={() => checkForUpdates(true)} disabled={isBusy(u)} data-testid="check-updates">{t('update.check')}</button>
+        {#if u.kind === 'available'}
+          <button class="primary" onclick={installUpdate}>{t('update.install')}</button>
+        {/if}
+      </div>
+      <p class="small" aria-live="polite">
+        {#if u.kind === 'checking'}{t('update.checking')}
+        {:else if u.kind === 'upToDate'}{t('update.upToDate')}
+        {:else if u.kind === 'available' || u.kind === 'downloading' || u.kind === 'installing' || u.kind === 'restarting'}{t('update.available', { version: displayVersion(u.info.version) })}
+        {:else if u.kind === 'error' && u.phase === 'check'}<span class="muted">{t('update.checkFailed', { message: u.message })}</span>
+        {:else if u.kind === 'error'}<span class="muted">{t('update.failed', { message: u.message })}</span>
+        {/if}
+      </p>
+      <p class="muted small">{t('update.auto')}</p>
+    {:else}
+      <div class="row">
+        <button disabled data-testid="check-updates">{t('update.check')}</button>
+      </div>
+      <p class="muted small">{t('update.browserOnly')}</p>
+    {/if}
   </section>
 
   {#if !isAdmin()}

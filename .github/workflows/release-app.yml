@@ -1,0 +1,291 @@
+# Builds the staff desktop app for macOS, Linux and Windows and publishes a
+# GitHub Release with the installers, the updater bundles + .sig signatures
+# and latest.json, which running apps poll for auto-updates.
+#
+# Release: bump the version (staff-app/scripts/bump-version.mjs), merge to the
+# default branch, then push a tag `app-vX.Y.Z` on that commit. See
+# staff-app/README.md, "Releases and updates".
+#
+# Flow: prepare (checks + creates the release as a pre-release, so
+#   /releases/latest still points at the previous version while building)
+#   -> build (4 platforms upload into that release)
+#   -> publish (checks latest.json has every platform, then marks the release
+#   as a normal release and "latest", which is what the updater follows).
+
+name: Release staff app
+
+on:
+  push:
+    tags: ["app-v*"]
+  workflow_dispatch:
+    # Run it on a tag `app-vX.Y.Z` to retry a release, or on the default branch
+    # to release the version in tauri.conf.json (creates tag app-v<version> there).
+
+permissions:
+  contents: write
+
+# One release at a time (releases are rare; a third queued run would replace a pending one).
+concurrency:
+  group: release-app
+  cancel-in-progress: false
+
+env:
+  APP_DIR: staff-app
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      release_id: ${{ steps.release.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history, for the default-branch check
+
+      - name: Check the Supabase build settings exist
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=0
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing Actions variable::Set the repository variable $name (Settings > Secrets and variables > Actions > Variables) before releasing. The app is built against it."
+              missing=1
+            fi
+          done
+          case "$SUPABASE_PUBLISHABLE_KEY" in
+            sb_secret_*|*service_role*)
+              echo "::error::SUPABASE_PUBLISHABLE_KEY looks like a secret/service-role key. Only the publishable key may ship inside the app."
+              missing=1 ;;
+          esac
+          case "$SUPABASE_URL" in
+            https://*|"") ;;
+            *) echo "::error::SUPABASE_URL must start with https:// (got '$SUPABASE_URL')."; missing=1 ;;
+          esac
+          exit $missing
+
+      - name: Check the commit is on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          # Releases are signed and reach every installed app, so only
+          # reviewed code (already merged into the default branch) may ship.
+          git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
+            echo "::error title=Not on the default branch::$GITHUB_SHA is not on $DEFAULT_BRANCH. Merge the release into $DEFAULT_BRANCH first and tag that commit."
+            exit 1
+          fi
+
+      - name: Check the tag matches the app version
+        id: version
+        run: |
+          cd "$APP_DIR"
+          pkg=$(node -p "require('./package.json').version")
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          cargo=$(sed -n '/^\[package\]/,/^\[/{s/^version *= *"\(.*\)"/\1/p}' src-tauri/Cargo.toml | head -n1)
+          lock=$(grep -A1 '^name = "woof-bilbao-staff"$' src-tauri/Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+          echo "package.json=$pkg tauri.conf.json=$conf Cargo.toml=$cargo Cargo.lock=$lock"
+          if [ "$pkg" != "$conf" ] || [ "$pkg" != "$cargo" ] || [ "$pkg" != "$lock" ]; then
+            echo "::error title=Version mismatch::package.json ($pkg), tauri.conf.json ($conf), Cargo.toml ($cargo) and Cargo.lock ($lock) differ. Run: node scripts/bump-version.mjs <version>"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="$GITHUB_REF_NAME"
+            if [ "$tag" != "app-v$pkg" ]; then
+              echo "::error title=Tag/version mismatch::Tag $tag does not match the app version $pkg (expected app-v$pkg). Bump with scripts/bump-version.mjs, merge, and tag that commit."
+              exit 1
+            fi
+          else
+            tag="app-v$pkg"
+            sha=$(git ls-remote origin "refs/tags/$tag^{}" | cut -f1)
+            [ -n "$sha" ] || sha=$(git ls-remote origin "refs/tags/$tag" | cut -f1)
+            if [ -n "$sha" ] && [ "$sha" != "$GITHUB_SHA" ]; then
+              echo "::error::Tag $tag already exists on another commit ($sha). Bump the version, or run this workflow on the tag itself."
+              exit 1
+            fi
+          fi
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release (as a pre-release until every platform is built)
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if existing=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/dev/null); then
+            id=$(jq -r .id <<<"$existing"); pre=$(jq -r .prerelease <<<"$existing")
+            if [ "$pre" != "true" ]; then
+              echo "::error::Release $TAG is already published. Release a higher version instead (the updater only moves forward)."
+              exit 1
+            fi
+            echo "Re-using the unfinished release $TAG ($id)."
+          else
+            cat > notes.md <<EOF
+          Woof Bilbao Staff $VERSION.
+
+          **Already installed?** The app updates itself: accept the "Version $VERSION available" banner.
+
+          **First install** (download one file below):
+          - **macOS, Apple Silicon (M1 and later):** \`Woof.Bilbao.Staff_${VERSION}_aarch64.dmg\`
+          - **macOS, Intel:** \`Woof.Bilbao.Staff_${VERSION}_x64.dmg\`
+          - **Windows:** \`Woof.Bilbao.Staff_${VERSION}_x64-setup.exe\`
+          - **Linux:** \`Woof.Bilbao.Staff_${VERSION}_amd64.AppImage\` (self-updating) or \`.deb\`
+
+          The app is not signed by Apple or Microsoft, so the first launch shows a warning:
+          - macOS: right-click the app > Open > Open (or run \`xattr -dr com.apple.quarantine "/Applications/Woof Bilbao Staff.app"\`).
+          - Windows SmartScreen: More info > Run anyway.
+
+          The \`.tar.gz\`, \`.sig\` and \`latest.json\` files are for the auto-updater.
+          EOF
+            target=()
+            [ "$GITHUB_REF_TYPE" = "tag" ] && target=(--verify-tag) || target=(--target "$GITHUB_SHA")
+            gh release create "$TAG" "${target[@]}" --prerelease --title "Woof Bilbao Staff $VERSION" --notes-file notes.md
+            id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq .id)
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Two native macOS builds rather than one universal binary: half the
+          # download for each Mac, and the updater gets one bundle per
+          # architecture (darwin-aarch64 / darwin-x86_64) with no extra config.
+          - name: macOS (Apple Silicon)
+            platform: macos-latest
+            args: --target aarch64-apple-darwin --bundles app,dmg
+          - name: macOS (Intel)
+            platform: macos-latest
+            args: --target x86_64-apple-darwin --bundles app,dmg
+          # 22.04 so the AppImage runs on older glibc distributions too.
+          - name: Linux
+            platform: ubuntu-22.04
+            args: --bundles appimage,deb
+          # NSIS only (per-user install, no admin rights needed); one installer
+          # type keeps first installs and updates on the same path.
+          - name: Windows
+            platform: windows-latest
+            args: --bundles nsis
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install WebKit and friends (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev patchelf pkg-config build-essential
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: staff-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: staff-app/src-tauri
+          key: ${{ matrix.args }}
+
+      - name: Install frontend dependencies
+        working-directory: staff-app
+        run: npm ci
+
+      - name: Build and upload
+        uses: tauri-apps/tauri-action@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updater signing (minisign). Public key: plugins.updater.pubkey in tauri.conf.json.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Baked into the web UI by Vite at build time. Public values (publishable key), so variables, not secrets.
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          # --- OPTIONAL, NOT ENABLED: OS code signing ---------------------------
+          # macOS signing + notarization (needs an Apple Developer account).
+          # Add these secrets and uncomment; tauri-action/tauri pick them up:
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}                   # base64 .p12
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}         # "Developer ID Application: ..."
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}                         # app-specific password
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing: set bundle.windows.certificateThumbprint (with a
+          # certificate import step before this one) or bundle.windows.signCommand
+          # (e.g. Azure Trusted Signing) in src-tauri/tauri.conf.json.
+          # -----------------------------------------------------------------------
+        with:
+          projectPath: staff-app
+          tauriScript: npm run tauri
+          args: ${{ matrix.args }}
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseName: Woof Bilbao Staff ${{ needs.prepare.outputs.version }}
+          releaseDraft: false
+          # latest.json (the updater manifest); called includeUpdaterJson before tauri-action v1.
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+          retryAttempts: 2
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      # Each build job merges its platform into latest.json; two jobs finishing
+      # at the same moment can drop one. Rebuild any missing entry from the
+      # uploaded bundle and its .sig before going live.
+      - name: Check latest.json has every platform
+        run: |
+          set -euo pipefail
+          mkdir rel && cd rel
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p latest.json || echo '{}' > latest.json
+          assets=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          version="${TAG#app-v}"
+          changed=0
+          for entry in "darwin-aarch64:_aarch64.app.tar.gz" "darwin-x86_64:_x64.app.tar.gz" \
+                       "linux-x86_64:_amd64.AppImage" "windows-x86_64:-setup.exe"; do
+            platform="${entry%%:*}"; suffix="${entry#*:}"
+            if jq -e --arg p "$platform" '.platforms[$p].url and .platforms[$p].signature' latest.json >/dev/null; then
+              echo "ok: $platform"; continue
+            fi
+            asset=$(grep -F -- "$suffix" <<<"$assets" | grep -v '\.sig$' | head -n1 || true)
+            if [ -z "$asset" ] || ! grep -qxF -- "$asset.sig" <<<"$assets"; then
+              echo "::error::No updater bundle for $platform (*$suffix + .sig) in release $TAG. Re-run the failed build job."
+              exit 1
+            fi
+            gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "$asset.sig"
+            jq --arg p "$platform" --arg url "$base/$asset" --rawfile sig "$asset.sig" --arg v "$version" \
+              '.version //= $v | .pub_date //= (now | todate) | .platforms[$p] = {signature: ($sig | rtrimstr("\n")), url: $url}' \
+              latest.json > next.json && mv next.json latest.json
+            echo "repaired: $platform -> $asset"; changed=1
+          done
+          if [ "$changed" = 1 ]; then
+            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" latest.json --clobber
+          fi
+          jq . latest.json
+
+      - name: Publish as the latest release
+        # Only now does /releases/latest/download/latest.json switch to this version.
+        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --prerelease=false --latest

@@ -13,6 +13,8 @@
   import Login from '#lib/components/Login.svelte';
   import AppHeader from '#lib/components/AppHeader.svelte';
   import Toasts from '#lib/components/Toasts.svelte';
+  import UpdateBanner from '#lib/components/UpdateBanner.svelte';
+  import { startAutoUpdates } from '#lib/updater.svelte.ts';
 
   let { children } = $props();
 
@@ -20,7 +22,12 @@
     initSession();
     // A safety net in case a Realtime event is missed (sleep, network drop).
     const timer = setInterval(() => session.staff && refreshCounts(), 60_000);
-    return () => clearInterval(timer);
+    // Desktop only: look for a new version now and every 6 hours (no-op in a browser).
+    const stopUpdates = startAutoUpdates();
+    return () => {
+      clearInterval(timer);
+      stopUpdates();
+    };
   });
 
   const signedIn = $derived(Boolean(session.staff));
@@ -58,6 +65,7 @@
   <main class="page">{@render children()}</main>
 {/if}
 <Toasts />
+<UpdateBanner />
 
 <style>
   .page { padding: 1.2rem; max-width: 1400px; margin: 0 auto; }

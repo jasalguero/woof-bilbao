@@ -127,9 +127,10 @@ The app opens on **Today** after signing in.
   happen on Today).
 - **Owners**: a searchable list, and an editable detail page with contact
   details, language, notes, their dogs and the messages queued to them.
-- **Settings** (admins only): default daily maximum, closed days (closing a
-  day that has bookings asks first and lists the dogs), staff roles,
-  and your own language. Everyone can switch between Spanish and English from
+- **Settings**: for everyone, your own language and the **app version** with
+  a **Check for updates** button (see "Releases and updates"). Admins also
+  get the default daily maximum, closed days (closing a day that has
+  bookings asks first and lists the dogs) and staff roles. Everyone can switch between Spanish and English from
   the header; the choice is saved for the staff member and on the computer.
 
 Vaccines never block anything: the reminder appears when the owner didn't
@@ -173,13 +174,168 @@ staff-app/
       session.svelte.ts     who is signed in; staff check
       realtime.ts           Supabase Realtime subscriptions (new requests, attendance)
       notify.ts             desktop notifications (Tauri only; no-op in a browser)
+      updater.svelte.ts     auto-update checks/install (Tauri only; no-op in a browser);
+                            the pure state machine is logic/updates.ts
       toast.svelte.ts       error/success/info toasts, friendly database errors
-  src-tauri/                Tauri 2 shell: window, log, window-state and notification plugins
+  src-tauri/                Tauri 2 shell: window, log, window-state, notification,
+                            updater and process plugins
+  scripts/bump-version.mjs  sets the version in package.json, tauri.conf.json, Cargo.toml/lock
   static/                   favicon and logo
 ```
 
 Imports inside the app use the `#lib/...` subpath alias (SvelteKit 3).
 
-## Later phases
+## Releases and updates
 
-- Phase 3: signed auto-updates (`tauri-plugin-updater`).
+### How releases are built
+
+Releases are built by GitHub Actions (`.github/workflows/release-app.yml`)
+when a tag named `app-vX.Y.Z` is pushed. It:
+
+1. checks that the repository variables `SUPABASE_URL` and
+   `SUPABASE_PUBLISHABLE_KEY` are set, and that the tag matches the version in
+   `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
+   `Cargo.lock`. If any of these checks fails, nothing is published;
+2. creates the GitHub Release as a *pre-release*, so the updater does not see
+   it yet;
+3. builds on four runners with `tauri-apps/tauri-action`: macOS Apple Silicon,
+   macOS Intel, Linux (Ubuntu 22.04: AppImage + .deb) and Windows (NSIS
+   `-setup.exe`). The web UI is built with the production Supabase URL and
+   publishable key from the Actions variables. The updater bundles are signed
+   with `TAURI_SIGNING_PRIVATE_KEY` (Actions secret), and each job uploads its
+   files and adds its platform to `latest.json`;
+4. checks that `latest.json` lists all four platforms (it adds back any entry
+   that was lost when two jobs finished at the same moment), then publishes
+   the release and marks it **latest**. Only then does
+   `https://github.com/jasalguero/woof-bilbao/releases/latest/download/latest.json`
+   point at the new version.
+
+It can also be started by hand (Actions → Release staff app → Run
+workflow). Run it on a tag to retry that release, or on the default branch to
+release the version in `tauri.conf.json`; in that case it creates the
+`app-vX.Y.Z` tag on that commit. A failed run can be re-run: it reuses the
+unfinished pre-release.
+
+**Before the first release**, set these under Settings → Secrets and variables →
+Actions:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Variable | `SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| Variable | `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` (never the secret/service-role key) |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY` | the updater private key (already added) |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | its password (already added) |
+
+The two Supabase values are *variables*, not secrets, because the publishable
+key is public: it ends up inside the app anyway.
+
+### Making a release
+
+```sh
+cd staff-app
+node scripts/bump-version.mjs 0.2.0   # package.json(+lock), tauri.conf.json, Cargo.toml(+lock)
+node scripts/bump-version.mjs --check # prints the versions; fails if they differ
+git commit -am "Release staff app 0.2.0"
+# open a PR and merge it into the default branch, then on the merged commit:
+git fetch origin
+git tag app-v0.2.0 origin/<default-branch>
+git push origin app-v0.2.0
+```
+
+The script refreshes `Cargo.lock` with `cargo update -p woof-bilbao-staff
+--offline`. If `cargo` is not installed it edits the lock entry directly.
+Versions only go up, and each version can be released only once.
+
+### First install (what staff download)
+
+From the latest release on
+<https://github.com/jasalguero/woof-bilbao/releases/latest>:
+
+| Computer | File |
+| --- | --- |
+| Mac with Apple Silicon (M1/M2/M3/M4…; Apple menu → About This Mac says "Chip") | `Woof.Bilbao.Staff_X.Y.Z_aarch64.dmg` |
+| Mac with Intel (About This Mac says "Processor … Intel") | `Woof.Bilbao.Staff_X.Y.Z_x64.dmg` |
+| Windows 10/11 | `Woof.Bilbao.Staff_X.Y.Z_x64-setup.exe` (installs for the current user, no admin needed) |
+| Linux | `Woof.Bilbao.Staff_X.Y.Z_amd64.AppImage` (`chmod +x`, then run it; updates itself) or the `.deb` (`sudo apt install ./file.deb`; does **not** auto-update, install new .debs by hand) |
+
+The `.app.tar.gz`, `.sig` and `latest.json` files are for the updater. Staff
+don't need them.
+
+### First launch: the app is not signed by Apple or Microsoft
+
+We have no Apple Developer ID or Windows code-signing certificate, which is
+fine for an internal app, but the first launch shows a warning:
+
+- **macOS** ("cannot be opened because the developer cannot be verified" /
+  "is damaged"): drag the app to Applications, then **right-click (or
+  Control-click) the app → Open → Open**. On recent macOS versions, if there
+  is no Open button, go to System Settings → Privacy & Security and click
+  **Open Anyway** after the first attempt. Or, in Terminal:
+  ```sh
+  xattr -dr com.apple.quarantine "/Applications/Woof Bilbao Staff.app"
+  ```
+  This is needed only once; updates installed by the app keep working.
+- **Windows** SmartScreen ("Windows protected your PC"): click **More info →
+  Run anyway**. Some antivirus tools may also ask the first time.
+- **Linux**: no warning. The AppImage needs FUSE (`libfuse2` on Ubuntu
+  22.04+) and execute permission.
+
+To sign later, the workflow has commented-out `APPLE_*` variables
+(notarization) and a note on `bundle.windows.certificateThumbprint` /
+`signCommand`. Add the secrets and uncomment them; nothing else changes.
+
+### How auto-update works
+
+- The app checks
+  `https://github.com/jasalguero/woof-bilbao/releases/latest/download/latest.json`
+  at startup and then every 6 hours while it is open (desktop only; in a
+  browser nothing happens). **Settings → Check for updates** checks right
+  away, and Settings always shows the running version.
+- If `latest.json` lists a higher version, a small card in the bottom-left
+  corner says "Nueva versión X disponible" / "Version X available", with the
+  release notes. Staff can keep working. **Actualizar y reiniciar / Update
+  and restart** downloads the update with a progress bar, checks its
+  signature against the public key in `src-tauri/tauri.conf.json`
+  (`plugins.updater.pubkey`), installs it and restarts the app. On Windows
+  the installer runs in passive mode (a small progress window, no
+  questions). **Later** hides the card for that version until the next
+  manual check or a newer release.
+- Failed checks (offline, GitHub down) are only logged and shown quietly in
+  Settings. A failed install shows in the card with **Try again**. Nothing
+  ever blocks work.
+- An update whose signature does not match is refused.
+
+### Rolling back
+
+The updater only moves **forward**: it installs a version only if it is
+higher than the running one. Deleting or un-publishing a bad release does not
+downgrade anyone who already installed it, and it can leave
+`/releases/latest` pointing at an older release that has no `latest.json`. To
+roll back, **release a new, higher version** that contains the old code:
+
+```sh
+git revert <bad commits>          # or check out the good code
+node scripts/bump-version.mjs 0.2.1
+# commit, merge, tag app-v0.2.1, push the tag
+```
+
+Staff on the bad version get 0.2.1 at the next check. In an emergency, staff
+can also install an older release by hand from its installer.
+
+### Updater key safety
+
+- The **private key** (`TAURI_SIGNING_PRIVATE_KEY`) and its password sign
+  every update. Keep an offline backup of both (e.g. in the team password
+  manager), separate from GitHub. GitHub secrets cannot be read back once
+  saved.
+- **If the private key or its password is lost**, no new update can be
+  signed for the installed apps. They only trust the public key they were
+  built with. Generate a new pair (`npx tauri signer generate -w
+  ~/.tauri/woof-bilbao.key`), put the new public key in `tauri.conf.json` and
+  the new private key in the secrets, release, and then **every computer must
+  install that release by hand once** (download the installer as for a first
+  install). After that, auto-update works again.
+- **If the private key leaks**, someone with write access to the releases
+  could ship a signed update. Rotate the key the same way (new pair, release,
+  manual reinstall) and revoke whatever leaked it.
+- The public key in `tauri.conf.json` is not secret.
