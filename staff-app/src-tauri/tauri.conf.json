@@ -40,6 +40,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENGMzhCQkM3Rjk0QUI4MzMKUldRenVFcjV4N3M0ejRXU3hGbGZXeVBFajF4c2w0ZlJYaFNiSm8rNUo5SGFhc1dyMmp3dUpyaksK",
+      "endpoints": [
+        "https://github.com/jasalguero/woof-bilbao/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

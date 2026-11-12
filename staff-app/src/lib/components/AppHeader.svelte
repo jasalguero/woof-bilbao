@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { session, isAdmin, signOut } from '#lib/session.svelte.ts';
+  import { session, signOut } from '#lib/session.svelte.ts';
   import { t } from '#lib/i18n/index.svelte.ts';
   import { counts } from '#lib/counts.svelte.ts';
   import LangSwitch from './LangSwitch.svelte';
@@ -11,7 +11,8 @@
     { href: '/calendar', label: t('nav.calendar'), badge: 0 },
     { href: '/dogs', label: t('nav.dogs'), badge: 0 },
     { href: '/owners', label: t('nav.owners'), badge: 0 },
-    ...(isAdmin() ? [{ href: '/settings', label: t('nav.settings'), badge: 0 }] : [])
+    // Everyone: language and app version/updates; the rest of Settings is admin-only.
+    { href: '/settings', label: t('nav.settings'), badge: 0 }
   ]);
 </script>
 

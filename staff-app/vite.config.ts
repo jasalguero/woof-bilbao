@@ -1,6 +1,7 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
+import pkg from './package.json' with { type: 'json' };
 
 // Node's process, without pulling in @types/node for one line.
 declare const process: { env: Record<string, string | undefined> };
@@ -24,6 +25,8 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] }
   },
   preview: { port: 4173, strictPort: true },
+  // Shown in Settings; the desktop app reads its own version from Tauri at runtime.
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   test: {
     include: ['src/**/*.test.ts'],
