@@ -17,6 +17,16 @@ describe('classifyError', () => {
     expect(classifyError(new TypeError('Failed to fetch')).kind).toBe('network');
     expect(classifyError('boom')).toEqual({ kind: 'other', message: 'boom' });
   });
+  it('recognises the attendance errors', () => {
+    expect(classifyError({ code: '22023', hint: 'not_booked', message: 'dog x has no confirmed booking today' })).toEqual({
+      kind: 'attendance',
+      reason: 'not_booked'
+    });
+    for (const hint of ['closed_day', 'inactive_dog', 'not_checked_in', 'already_checked_out']) {
+      expect(classifyError({ code: '22023', hint })).toEqual({ kind: 'attendance', reason: hint });
+    }
+    expect(classifyError({ code: '22023', hint: 'bad_input', message: 'note is too long' }).kind).toBe('other');
+  });
 });
 
 describe('needsVaccineCheck', () => {

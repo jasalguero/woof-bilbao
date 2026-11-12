@@ -36,6 +36,7 @@
     font-weight: 700;
   }
   .toast.error { background: var(--pop); color: var(--pop-ink); }
+  .toast.info { background: var(--sun); color: #1d1b3a; }
   .toast span { flex: 1; padding-top: 0.2rem; }
   .toast button { color: inherit; font-size: 1.2rem; line-height: 1; }
 </style>

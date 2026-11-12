@@ -11,6 +11,8 @@ pub fn run() {
         )
         // Remembers window size and position between runs.
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Desktop notifications when a new booking request arrives.
+        .plugin(tauri_plugin_notification::init())
         .run(tauri::generate_context!())
         .expect("error while running the Woof Bilbao staff app");
 }

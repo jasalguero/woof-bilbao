@@ -37,10 +37,25 @@ insert into public.dogs (id, owner_id, name, breed, age_text, size, sex, neutere
   ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'Beltza', 'Labrador', '7 años', 'l', 'm', true, true, current_date - 10, 'Alergia al pollo', 'Tranquilo, duerme mucho'),
   ('c0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000002', 'Pepper', 'Jack Russell', '1 year', 's', 'f', false, true, null, null, 'Very energetic, loves balls');
 
--- Bookings over the next two weeks: one confirmed, one pending.
+-- More dogs so the Today screen has a few to check in, and one (Rocky) with
+-- no booking, for trying a walk-in.
+insert into public.owners (id, full_name, email, phone, language, consent_at) values
+  ('b0000000-0000-0000-0000-000000000003', 'Itziar Mendoza', 'itziar@example.com', '+34 600 777 888', 'es', now());
+
+insert into public.dogs (id, owner_id, name, breed, age_text, size, sex, neutered, vaccines_up_to_date, vaccines_checked_until, medical_notes, behaviour_notes) values
+  ('c0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000003', 'Kira', 'Border Collie', '4 años', 'm', 'f', true, true, current_date + 9, 'Toma pastilla para el tiroides a mediodía', 'Muy lista, se escapa si puede'),
+  ('c0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000003', 'Rocky', 'Bulldog francés', '2 años', 's', 'm', false, false, null, null, 'Ronca'),
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000002', 'Biscuit', 'Beagle', '5 years', 'm', 'm', true, true, current_date + 300, null, 'Food thief');
+
+-- Bookings from today (in Bilbao) over the next two weeks: four dogs
+-- confirmed every weekday, one pending. On a weekday the Today screen shows
+-- the four confirmed dogs; on a weekend it shows the closed state.
 insert into public.bookings (dog_id, start_date, end_date, weekdays, status) values
-  ('c0000000-0000-0000-0000-000000000001', current_date, current_date + 14, '{1,2,3,4,5}', 'confirmed'),
-  ('c0000000-0000-0000-0000-000000000003', current_date, current_date + 14, '{1,3,5}', 'pending');
+  ('c0000000-0000-0000-0000-000000000001', public.madrid_today(), public.madrid_today() + 14, '{1,2,3,4,5}', 'confirmed'),
+  ('c0000000-0000-0000-0000-000000000002', public.madrid_today(), public.madrid_today() + 14, '{1,2,3,4,5}', 'confirmed'),
+  ('c0000000-0000-0000-0000-000000000004', public.madrid_today(), public.madrid_today() + 14, '{1,2,3,4,5}', 'confirmed'),
+  ('c0000000-0000-0000-0000-000000000006', public.madrid_today(), public.madrid_today() + 14, '{1,2,3,4,5}', 'confirmed'),
+  ('c0000000-0000-0000-0000-000000000003', public.madrid_today(), public.madrid_today() + 14, '{1,3,5}', 'pending');
 
 insert into public.booking_requests (payload) values (
   '{"lang":"es","owner":{"name":"Leire Gómez","email":"leire@example.com","phone":"+34 600 555 666"},

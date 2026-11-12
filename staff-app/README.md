@@ -1,14 +1,16 @@
 # Woof Bilbao Staff (desktop app)
 
-The app the team uses to handle booking requests, see the calendar and keep
-dog and owner records. Staff only, on Windows, macOS and Linux; owners never
+The app the team uses every day: check dogs in and out, handle booking
+requests, see the calendar and keep dog and owner records. Staff only, on Windows, macOS and Linux; owners never
 install it (they use the website form).
 
 It is a [Tauri 2](https://tauri.app) window around a SvelteKit single-page app
 (Svelte 5, TypeScript). The UI talks straight to Supabase with
 `@supabase/supabase-js` and the staff member's own login; row-level security
 in the database decides what each person may do. There are no custom Rust
-commands and no server of our own.
+commands and no server of our own. Supabase Realtime keeps screens live (new
+requests, check-ins by a colleague) and the Tauri notification plugin raises
+a desktop notification when a request comes in.
 
 ## Run it in development
 
@@ -82,6 +84,21 @@ authorised and signed out.
 
 ## Screens
 
+The app opens on **Today** after signing in.
+
+- **Today**: the dogs expected today (confirmed bookings for today's date in
+  Bilbao), each with photo, name, size, owner and phone (a `tel:` link), a
+  health alert when the dog has medical notes, and the soft vaccine reminder.
+  One big tap checks a dog **in**, then **out**; "With a note…" adds an
+  optional note first. Mistakes can be undone (**Undo check-in** before the
+  check-out, **Undo check-out** after it). **Walk-in check-in** picks any
+  active dog with no booking today and asks for confirmation first. Counters
+  show expected (and how many are still to come), here now, gone home and
+  walk-ins. Weekends and closed days show a friendly closed message instead.
+  The screen updates live when a colleague checks a dog in or out on another
+  computer, and moves to the new day at midnight if left open. All of it goes
+  through the `check_in` / `check_out` / `undo_*` database functions, which
+  always use today's date and keep one attendance row per dog per day.
 - **Requests**: the inbox of new booking requests from the website, newest
   first, plus a tab for handled ones. Opening one shows the form as sent.
   Staff pick the owner (an existing one with the same email is suggested) or
@@ -94,7 +111,8 @@ authorised and signed out.
     **Leave as pending**;
   - **Decline** or **Mark as spam**.
   Accepting or declining queues an email to the owner in their language
-  (emails are only queued for now; the sender comes later). Spam gets none.
+  (the `send-messages` function delivers it once email is set up; see
+  `supabase/README.md`). Spam gets none.
 - **Calendar**: a month of Monday–Friday days showing confirmed dogs against
   the daily maximum, plus pending ones. Days near or at the limit are
   coloured, closed days are grey. Clicking a day lists its dogs with size,
@@ -102,7 +120,8 @@ authorised and signed out.
 - **Dogs**: a searchable list and a profile page to edit the dog (including
   "vaccines checked until" and notes), upload a photo (private `dog-files`
   bucket at `dogs/<dog_id>/photo`, shown with a signed URL), see the owner's contact details, confirm,
-  cancel or move bookings, and see attendance history (read-only for now).
+  cancel or move bookings, and see attendance history (check-in and check-out
+  happen on Today).
 - **Owners**: a searchable list, and an editable detail page with contact
   details, language, notes, their dogs and the messages queued to them.
 - **Settings** (admins only): default daily maximum, closed days (closing a
@@ -111,7 +130,28 @@ authorised and signed out.
   the header; the choice is saved for the staff member and on the computer.
 
 Vaccines never block anything: the reminder appears when the owner didn't
-confirm vaccines or the "checked until" date has passed.
+confirm vaccines or the "checked until" date has passed. (Owners also get a
+gentle reminder email; see `supabase/README.md`.)
+
+## Live updates and notifications
+
+When someone sends the booking form, every signed-in staff member sees it at
+once, wherever they are in the app:
+
+- the **Requests** badge in the header goes up, and the Requests inbox
+  refreshes itself if it is open;
+- a yellow toast says which dog and owner it is;
+- the desktop app also shows a **system notification**. The first one asks
+  the operating system for permission; if it is refused, the toast and badge
+  still work. In a plain browser (`npm run dev` / `npm run preview`) there is
+  no system notification, only the toast and badge.
+
+This uses Supabase Realtime (`postgres_changes` on `booking_requests` inserts
+and on `attendance`). Realtime applies row-level security, so a login that is
+not staff receives nothing. The badge is also re-counted every minute, in
+case the connection dropped while the laptop slept. On the hosted project
+nothing needs switching on: the migration adds both tables to the
+`supabase_realtime` publication.
 
 ## Layout
 
@@ -122,13 +162,16 @@ staff-app/
     lib/
       api/                  small typed wrappers around supabase-js, one per area
       logic/                pure functions (calendar grid, dates, request prefill,
-                            error parsing, vaccine reminder) with *.test.ts beside them
+                            error parsing, vaccine reminder, Today list and counters)
+                            with *.test.ts beside them
       i18n/                 es/en dictionary (dict.ts) and the t() helper
       components/           shared Svelte components
       database.types.ts     generated by `supabase gen types`
       session.svelte.ts     who is signed in; staff check
-      toast.svelte.ts       error/success toasts, friendly database errors
-  src-tauri/                Tauri 2 shell: window, log and window-state plugins
+      realtime.ts           Supabase Realtime subscriptions (new requests, attendance)
+      notify.ts             desktop notifications (Tauri only; no-op in a browser)
+      toast.svelte.ts       error/success/info toasts, friendly database errors
+  src-tauri/                Tauri 2 shell: window, log, window-state and notification plugins
   static/                   favicon and logo
 ```
 
@@ -137,5 +180,3 @@ Imports inside the app use the `#lib/...` subpath alias (SvelteKit 3).
 ## Later phases
 
 - Phase 3: signed auto-updates (`tauri-plugin-updater`).
-- Phase 4: check-in/check-out screen, Realtime updates and desktop
-  notifications for new requests.

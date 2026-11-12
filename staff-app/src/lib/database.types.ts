@@ -163,17 +163,23 @@ isOneToOne: false
                   ]
                 },"messages": {
                   Row: {
-                    "channel": Database["public"]['Enums']["message_channel"],"created_at": string,"data": NonNullable<Json>,"error": string | null,"id": string,"language": Database["public"]['Enums']["lang"],"owner_id": string | null,"recipient": string,"request_id": string | null,"sent_at": string | null,"status": Database["public"]['Enums']["message_status"],"template": string
+                    "attempts": number,"channel": Database["public"]['Enums']["message_channel"],"created_at": string,"data": NonNullable<Json>,"dog_id": string | null,"error": string | null,"id": string,"language": Database["public"]['Enums']["lang"],"last_attempt_at": string | null,"owner_id": string | null,"provider_id": string | null,"recipient": string,"request_id": string | null,"sent_at": string | null,"status": Database["public"]['Enums']["message_status"],"template": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"data"?: NonNullable<Json>,"error"?: string | null,"id"?: string,"language"?: Database["public"]['Enums']["lang"],"owner_id"?: string | null,"recipient": string,"request_id"?: string | null,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"template": string
+                    "attempts"?: number,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"data"?: NonNullable<Json>,"dog_id"?: string | null,"error"?: string | null,"id"?: string,"language"?: Database["public"]['Enums']["lang"],"last_attempt_at"?: string | null,"owner_id"?: string | null,"provider_id"?: string | null,"recipient": string,"request_id"?: string | null,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"template": string
                   }
                   Update: {
-                    "channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"data"?: NonNullable<Json>,"error"?: string | null,"id"?: string,"language"?: Database["public"]['Enums']["lang"],"owner_id"?: string | null,"recipient"?: string,"request_id"?: string | null,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"template"?: string
+                    "attempts"?: number,"channel"?: Database["public"]['Enums']["message_channel"],"created_at"?: string,"data"?: NonNullable<Json>,"dog_id"?: string | null,"error"?: string | null,"id"?: string,"language"?: Database["public"]['Enums']["lang"],"last_attempt_at"?: string | null,"owner_id"?: string | null,"provider_id"?: string | null,"recipient"?: string,"request_id"?: string | null,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["message_status"],"template"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "messages_dog_id_fkey"
+      columns: ["dog_id"]
+isOneToOne: false
+      referencedRelation: "dogs"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "messages_owner_id_fkey"
       columns: ["owner_id"]
 isOneToOne: false
@@ -263,6 +269,93 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"append_note":
+{ Args: { "p_new": string,"p_old": string }; Returns: string
+                           },
+"check_in":
+{ Args: { "p_dog_id": string,"p_note"?: string,"p_walk_in"?: boolean }; Returns: {
+              "booking_id": string | null,
+"checked_in_at": string | null,
+"checked_in_by": string | null,
+"checked_out_at": string | null,
+"day": string,
+"dog_id": string,
+"id": string,
+"note": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "attendance"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"check_out":
+{ Args: { "p_dog_id": string,"p_note"?: string }; Returns: {
+              "booking_id": string | null,
+"checked_in_at": string | null,
+"checked_in_by": string | null,
+"checked_out_at": string | null,
+"day": string,
+"dog_id": string,
+"id": string,
+"note": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "attendance"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"claim_messages":
+{ Args: { "p_channel"?: Database["public"]['Enums']["message_channel"],"p_limit"?: number }; Returns: {
+              "attempts": number,
+"channel": Database["public"]['Enums']["message_channel"],
+"created_at": string,
+"data": NonNullable<Json>,
+"dog_id": string | null,
+"error": string | null,
+"id": string,
+"language": Database["public"]['Enums']["lang"],
+"last_attempt_at": string | null,
+"owner_id": string | null,
+"provider_id": string | null,
+"recipient": string,
+"request_id": string | null,
+"sent_at": string | null,
+"status": Database["public"]['Enums']["message_status"],
+"template": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "messages"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"complete_message":
+{ Args: { "p_error"?: string,"p_id": string,"p_outcome": string,"p_provider_id"?: string }; Returns: {
+              "attempts": number,
+"channel": Database["public"]['Enums']["message_channel"],
+"created_at": string,
+"data": NonNullable<Json>,
+"dog_id": string | null,
+"error": string | null,
+"id": string,
+"language": Database["public"]['Enums']["lang"],
+"last_attempt_at": string | null,
+"owner_id": string | null,
+"provider_id": string | null,
+"recipient": string,
+"request_id": string | null,
+"sent_at": string | null,
+"status": Database["public"]['Enums']["message_status"],
+"template": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "messages"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "confirm_booking":
 { Args: { "p_allow_overbook"?: boolean,"p_booking_id": string }; Returns: {
               "created_at": string,
@@ -300,8 +393,14 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"invoke_send_messages":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"is_open_day":
+{ Args: { "p_day": string }; Returns: boolean
                            },
 "is_staff":
 { Args: Record<PropertyKey, never>; Returns: boolean
@@ -312,15 +411,41 @@ isOneToOne: false
 "jsonb_text_field":
 { Args: { "p_key": string,"p_max"?: number,"p_obj": Json,"p_required"?: boolean }; Returns: string
                            },
+"madrid_today":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "max_dogs_on":
 { Args: { "p_day": string }; Returns: number
                            },
+"queue_vaccine_reminders":
+{ Args: { "p_today"?: string }; Returns: number
+                           },
 "set_my_language":
 { Args: { "p_language": Database["public"]['Enums']["lang"] }; Returns: undefined
-                           }
+                           },
+"undo_check_in":
+{ Args: { "p_dog_id": string }; Returns: undefined
+                           },
+"undo_check_out":
+{ Args: { "p_dog_id": string }; Returns: {
+              "booking_id": string | null,
+"checked_in_at": string | null,
+"checked_in_by": string | null,
+"checked_out_at": string | null,
+"day": string,
+"dog_id": string,
+"id": string,
+"note": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "attendance"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
           }
           Enums: {
-            "booking_status": "pending"|"confirmed"|"cancelled","dog_sex": "m"|"f","dog_size": "s"|"m"|"l","lang": "es"|"en","message_channel": "email"|"whatsapp"|"sms"|"telegram","message_status": "queued"|"sent"|"failed","request_status": "new"|"accepted"|"declined"|"spam","staff_role": "admin"|"staff"
+            "booking_status": "pending"|"confirmed"|"cancelled","dog_sex": "m"|"f","dog_size": "s"|"m"|"l","lang": "es"|"en","message_channel": "email"|"whatsapp"|"sms"|"telegram","message_status": "queued"|"sending"|"sent"|"failed","request_status": "new"|"accepted"|"declined"|"spam","staff_role": "admin"|"staff"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -440,7 +565,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "booking_status": ["pending", "confirmed", "cancelled"],"dog_sex": ["m", "f"],"dog_size": ["s", "m", "l"],"lang": ["es", "en"],"message_channel": ["email", "whatsapp", "sms", "telegram"],"message_status": ["queued", "sent", "failed"],"request_status": ["new", "accepted", "declined", "spam"],"staff_role": ["admin", "staff"]
+            "booking_status": ["pending", "confirmed", "cancelled"],"dog_sex": ["m", "f"],"dog_size": ["s", "m", "l"],"lang": ["es", "en"],"message_channel": ["email", "whatsapp", "sms", "telegram"],"message_status": ["queued", "sending", "sent", "failed"],"request_status": ["new", "accepted", "declined", "spam"],"staff_role": ["admin", "staff"]
           }
         }
 } as const

@@ -140,7 +140,7 @@ tr.clickable:hover td { background: var(--surface-2); }
   background: var(--surface-2);
   white-space: nowrap;
 }
-.badge.new, .badge.pending, .badge.queued { background: var(--sun); color: #1d1b3a; }
+.badge.new, .badge.pending, .badge.queued, .badge.sending { background: var(--sun); color: #1d1b3a; }
 .badge.accepted, .badge.confirmed, .badge.sent { background: var(--mint); color: #1d1b3a; }
 .badge.declined, .badge.cancelled, .badge.failed { background: var(--closed); }
 .badge.spam { background: var(--full); color: #1d1b3a; }

@@ -6,6 +6,7 @@
   import LangSwitch from './LangSwitch.svelte';
 
   const links = $derived([
+    { href: '/today', label: t('nav.today'), badge: 0 },
     { href: '/requests', label: t('nav.requests'), badge: counts.newRequests },
     { href: '/calendar', label: t('nav.calendar'), badge: 0 },
     { href: '/dogs', label: t('nav.dogs'), badge: 0 },
@@ -15,11 +16,11 @@
 </script>
 
 <header>
-  <a class="brand" href="/requests"><img class="logo" src="/logo.png" alt="" />{t('app.name')}</a>
+  <a class="brand" href="/today"><img class="logo" src="/logo.png" alt="" />{t('app.name')}</a>
   <nav>
     {#each links as l (l.href)}
       <a href={l.href} aria-current={page.url.pathname.startsWith(l.href) ? 'page' : undefined}>
-        {l.label}{#if l.badge}<span class="count">{l.badge}</span>{/if}
+        {l.label}{#if l.badge}<span class="count" data-testid="badge-{l.href.slice(1)}">{l.badge}</span>{/if}
       </a>
     {/each}
   </nav>
