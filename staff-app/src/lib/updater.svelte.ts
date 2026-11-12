@@ -35,7 +35,7 @@ function send(e: UpdateEvent) {
 
 function message(err: unknown): string {
   if (err instanceof Error) return err.message;
-  return typeof err === 'string' ? err : JSON.stringify(err);
+  return typeof err === 'string' ? err : (JSON.stringify(err) ?? String(err));
 }
 
 function log(level: 'info' | 'warn', text: string) {
@@ -53,6 +53,9 @@ async function release() {
 export async function checkForUpdates(manual = false): Promise<void> {
   if (!isTauri()) return;
   if (isBusy(updater.state)) return; // already checking, or downloading/installing
+  // An update is already found and waiting for staff: an automatic re-check
+  // could only hide it (offline) or make the banner flicker.
+  if (!manual && updater.state.kind === 'available' && pending) return;
   send({ type: 'check', manual });
   try {
     const update = await check({ timeout: 30_000 });
