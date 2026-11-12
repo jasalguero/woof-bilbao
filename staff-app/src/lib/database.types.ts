@@ -244,7 +244,7 @@ isOneToOne: false
           }
           Functions: {
             "accept_booking_request":
-{ Args: { "p_dog_id": string,"p_end_date": string,"p_mode"?: string,"p_request_id": string,"p_start_date": string,"p_weekdays": (number)[] }; Returns: {
+{ Args: { "p_dog_id": string,"p_end_date": string,"p_mode"?: string,"p_new_dog"?: Json,"p_new_owner"?: Json,"p_owner_id"?: string,"p_request_id": string,"p_start_date": string,"p_weekdays": (number)[] }; Returns: {
               "created_at": string,
 "created_by": string | null,
 "dog_id": string,
@@ -305,6 +305,12 @@ isOneToOne: false
                            },
 "is_staff":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"jsonb_bool_field":
+{ Args: { "p_key": string,"p_obj": Json }; Returns: boolean
+                           },
+"jsonb_text_field":
+{ Args: { "p_key": string,"p_max"?: number,"p_obj": Json,"p_required"?: boolean }; Returns: string
                            },
 "max_dogs_on":
 { Args: { "p_day": string }; Returns: number

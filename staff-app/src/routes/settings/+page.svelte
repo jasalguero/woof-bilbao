@@ -2,6 +2,9 @@
   import {
     addClosedDay, getDefaultMaxDogs, listClosedDays, listStaff, removeClosedDay, setDefaultMaxDogs, setStaffRole
   } from '#lib/api/settings.ts';
+  import { getDayDogs, type DayDog } from '#lib/api/calendar.ts';
+  import Modal from '#lib/components/Modal.svelte';
+  import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { session, isAdmin, changeLanguage } from '#lib/session.svelte.ts';
   import { i18n, t, fmtDate } from '#lib/i18n/index.svelte.ts';
   import { todayIso } from '#lib/logic/dates.ts';
@@ -15,6 +18,8 @@
   let newReason = $state('');
   let busy = $state(false);
   let showPast = $state(false);
+  // Set when the day being closed already has bookings: staff confirm first.
+  let affected = $state<{ day: string; reason: string | null; dogs: DayDog[] } | null>(null);
   const today = todayIso();
   const shownDays = $derived(closedDays.filter((c) => showPast || (c.day ?? '') >= today));
 
@@ -49,11 +54,31 @@
     act(() => setDefaultMaxDogs(maxDogs!));
   }
 
-  function addDay(e: SubmitEvent) {
+  async function addDay(e: SubmitEvent) {
     e.preventDefault();
     if (!newDay) return;
+    const day = newDay;
+    const reason = newReason.trim() || null;
+    busy = true;
+    try {
+      const dogs = await getDayDogs(day);
+      if (dogs.length) {
+        affected = { day, reason, dogs };
+        return;
+      }
+    } catch (err) {
+      fail(err);
+      return;
+    } finally {
+      busy = false;
+    }
+    closeDay(day, reason);
+  }
+
+  function closeDay(day: string, reason: string | null) {
+    affected = null;
     act(async () => {
-      await addClosedDay(newDay, newReason.trim() || null);
+      await addClosedDay(day, reason);
       newDay = '';
       newReason = '';
     });
@@ -136,7 +161,24 @@
   {/if}
 </div>
 
+{#if affected}
+  {@const a = affected}
+  <Modal title={t('settings.closeDayTitle')} onclose={() => (affected = null)}>
+    <p>{t('settings.closeDayBody', { day: fmtDate(a.day, { weekday: 'long', day: 'numeric', month: 'long' }) })}</p>
+    <ul class="affected">
+      {#each a.dogs as d (d.dog.id)}
+        <li><strong>{d.dog.name}</strong> <span class="muted">({d.dog.owner.full_name})</span> <StatusBadge status={d.status} /></li>
+      {/each}
+    </ul>
+    {#snippet actions()}
+      <button class="quiet" onclick={() => (affected = null)} disabled={busy}>{t('common.cancel')}</button>
+      <button class="primary" onclick={() => closeDay(a.day, a.reason)} disabled={busy}>{t('settings.closeAnyway')}</button>
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
+  .affected { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; align-items: start; }
   .wide { grid-column: 1 / -1; }
   input[type='number'] { width: 8rem; }

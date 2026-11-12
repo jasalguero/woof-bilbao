@@ -32,10 +32,15 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
 
   rust:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install WebKit and friends
+      - name: Install WebKit and friends (Linux only)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config build-essential
@@ -44,5 +49,6 @@ jobs:
         with:
           workspaces: staff-app/src-tauri
       - name: cargo check
+        shell: bash
         # generate_context! needs the frontend folder to exist; an empty one is enough for a check.
         run: mkdir -p staff-app/build && cargo check --locked --manifest-path staff-app/src-tauri/Cargo.toml

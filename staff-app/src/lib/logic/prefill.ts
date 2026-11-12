@@ -138,3 +138,54 @@ export function matchDogByName<T extends { name: string }>(dogs: readonly T[], n
   if (!want) return null;
   return dogs.find((d) => d.name.trim().toLocaleLowerCase() === want) ?? null;
 }
+
+export interface AcceptTarget {
+  /** An existing dog, or null when a new dog is created. */
+  dogId: string | null;
+  /** The existing owner of a new dog, or null when a new owner is created too. */
+  ownerId: string | null;
+  newOwner: OwnerDraft | null;
+  newDog: DogDraft | null;
+}
+
+const clean = (s: string | null | undefined): string | null => (s && s.trim() ? s.trim() : null);
+
+/**
+ * What accept_booking_request should book: an existing dog, or a new dog for
+ * an existing or new owner (created in the same transaction). Returns null
+ * when the choice is incomplete.
+ */
+export function acceptTarget(choice: {
+  ownerId: string | null;
+  newOwner: OwnerDraft | null;
+  dogId: string | null;
+  newDog: DogDraft | null;
+}): AcceptTarget | null {
+  if (choice.dogId) {
+    return { dogId: choice.dogId, ownerId: null, newOwner: null, newDog: null };
+  }
+  if (!choice.newDog || !clean(choice.newDog.name)) return null;
+  const newDog: DogDraft = {
+    ...choice.newDog,
+    name: clean(choice.newDog.name)!,
+    breed: clean(choice.newDog.breed),
+    age_text: clean(choice.newDog.age_text),
+    medical_notes: clean(choice.newDog.medical_notes),
+    behaviour_notes: clean(choice.newDog.behaviour_notes)
+  };
+  if (choice.ownerId) return { dogId: null, ownerId: choice.ownerId, newOwner: null, newDog };
+  const o = choice.newOwner;
+  if (!o || !clean(o.full_name) || !clean(o.email)) return null;
+  return {
+    dogId: null,
+    ownerId: null,
+    newOwner: {
+      ...o,
+      full_name: clean(o.full_name)!,
+      email: clean(o.email)!.toLowerCase(),
+      phone: clean(o.phone),
+      notes: clean(o.notes)
+    },
+    newDog
+  };
+}

@@ -1,7 +1,7 @@
 // Current UI language. Saved per computer in localStorage and per staff
 // member in `staff.language` (see session.svelte.ts).
 import type { MessageKey } from './dict';
-import { translate, type Vars } from './format';
+import { formatDate, translate, type Vars } from './format';
 import type { Lang } from '../logic/prefill';
 
 const STORAGE_KEY = 'woof.lang';
@@ -33,11 +33,9 @@ export function t(key: MessageKey, vars?: Vars): string {
 
 const locales: Record<Lang, string> = { es: 'es-ES', en: 'en-GB' };
 
-/** 2026-12-01 -> "1 dic 2026" / "1 Dec 2026". */
-export function fmtDate(iso: string | null | undefined, opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
-  if (!iso) return '–';
-  const d = iso.length === 10 ? new Date(iso + 'T12:00:00Z') : new Date(iso);
-  return new Intl.DateTimeFormat(locales[i18n.lang], { ...opts, timeZone: iso.length === 10 ? 'UTC' : undefined }).format(d);
+/** 2026-12-01 -> "1 dic 2026" / "1 Dec 2026"; timestamps in Bilbao time. */
+export function fmtDate(iso: string | null | undefined, opts?: Intl.DateTimeFormatOptions): string {
+  return formatDate(i18n.lang, iso, opts);
 }
 
 export function fmtDateTime(iso: string | null | undefined): string {

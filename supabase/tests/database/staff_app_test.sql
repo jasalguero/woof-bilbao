@@ -2,7 +2,7 @@
 -- Run with: npx supabase test db
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(41);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'admin@test.local'),
@@ -31,7 +31,10 @@ insert into public.booking_requests (id, payload) values
   ('40000000-0000-0000-0000-000000000004', '{"lang":"en","owner":{"name":"Mark","email":"mark@test.local"},"dog":{"name":"Salt"},"dates":{"from":"2030-01-08","to":"2030-01-08","weekdays":[2]}}'),
   ('40000000-0000-0000-0000-000000000005', '{"lang":"es","owner":{"name":"Mark","email":"MARK@test.local"},"dog":{"name":"Pepper"},"dates":{"from":"2030-02-04","to":"2030-02-08","weekdays":[1]}}'),
   ('40000000-0000-0000-0000-000000000006', '{"lang":"en","owner":{"name":"Zoe","email":"zoe@test.local"},"dog":{"name":"Rex"},"dates":{"from":"2030-02-04","to":"2030-02-08","weekdays":[1]}}'),
-  ('40000000-0000-0000-0000-000000000007', '{"lang":"es","owner":{"name":"Bot","email":"bot@test.local"},"dog":{"name":"X"},"dates":{"from":"2030-02-04","to":"2030-02-08","weekdays":[1]}}');
+  ('40000000-0000-0000-0000-000000000007', '{"lang":"es","owner":{"name":"Bot","email":"bot@test.local"},"dog":{"name":"X"},"dates":{"from":"2030-02-04","to":"2030-02-08","weekdays":[1]}}'),
+  ('40000000-0000-0000-0000-000000000008', '{"lang":"en","owner":{"name":"Nia","email":"nia@test.local"},"dog":{"name":"Luna"},"dates":{"from":"2030-01-07","to":"2030-01-07","weekdays":[1]}}'),
+  ('40000000-0000-0000-0000-000000000009', '{"lang":"en","owner":{"name":"Mark","email":"mark@test.local"},"dog":{"name":"Pepper Jr"},"dates":{"from":"2030-01-15","to":"2030-01-15","weekdays":[2]}}'),
+  ('40000000-0000-0000-0000-000000000010', '{"lang":"es","owner":{"name":"Val","email":"val@test.local"},"dog":{"name":"Bad"},"dates":{"from":"2030-01-16","to":"2030-01-16","weekdays":[3]}}');
 
 -- Anonymous visitors and non-staff users can't call the functions.
 set local role anon;
@@ -118,6 +121,56 @@ select is(
 select is(
   (select data ->> 'booking_status' from public.messages where request_id = '40000000-0000-0000-0000-000000000003'),
   'pending', 'the queued email says the booking is pending');
+
+-- New owner and dog are created inside the accept: a failed accept leaves nothing.
+select throws_like(
+  $$select public.accept_booking_request('40000000-0000-0000-0000-000000000008', null, '2030-01-07', '2030-01-07', '{1}', 'confirm',
+      null, '{"full_name":"Nia","email":"nia@test.local","consent_at":"2030-01-01T10:00:00Z"}', '{"name":"Luna","size":"m","vaccines_up_to_date":true}')$$,
+  'no room on: 2030-01-07', 'accepting a new owner and dog onto a full day fails');
+select is((select count(*)::int from public.owners where email = 'nia@test.local'), 0, 'a failed accept creates no owner');
+select is((select count(*)::int from public.dogs where name = 'Luna'), 0, 'a failed accept creates no dog');
+
+select is(
+  (select status::text from public.accept_booking_request('40000000-0000-0000-0000-000000000008', null, '2030-01-14', '2030-01-14', '{1}', 'confirm',
+      null, '{"full_name":"Nia","email":"nia@test.local","consent_at":"2030-01-01T10:00:00Z"}', '{"name":"Luna","size":"m","vaccines_up_to_date":true}')),
+  'confirmed', 'accepting with a new owner and dog works');
+select results_eq(
+  $$select full_name, language::text, consent_at from public.owners where email = 'nia@test.local'$$,
+  $$values ('Nia', 'en', '2030-01-01T10:00:00Z'::timestamptz)$$,
+  'exactly one owner is created, in the form language');
+select results_eq(
+  $$select d.name, d.size::text, d.vaccines_up_to_date, d.neutered from public.dogs d
+    join public.owners o on o.id = d.owner_id where o.email = 'nia@test.local'$$,
+  $$values ('Luna', 'm', true, false)$$,
+  'exactly one dog is created for the new owner');
+select is(
+  (select recipient from public.messages where request_id = '40000000-0000-0000-0000-000000000008'),
+  'nia@test.local', 'the acceptance email goes to the new owner');
+
+-- An existing owner with a new dog: the owner is reused.
+select is(
+  (select status::text from public.accept_booking_request('40000000-0000-0000-0000-000000000009', null, '2030-01-15', '2030-01-15', '{2}', 'confirm',
+      '10000000-0000-0000-0000-000000000001', null, '{"name":"Pepper Jr","sex":"f"}')),
+  'confirmed', 'accepting a new dog for an existing owner works');
+select results_eq(
+  $$select (select count(*)::int from public.owners where lower(email) = 'mark@test.local'),
+           (select count(*)::int from public.dogs where owner_id = '10000000-0000-0000-0000-000000000001')$$,
+  $$values (1, 4)$$,
+  'the existing owner is reused and gets one more dog');
+
+-- Bad arguments are refused.
+select throws_ok(
+  $$select public.accept_booking_request('40000000-0000-0000-0000-000000000010', null, '2030-01-16', '2030-01-16', '{3}', 'confirm',
+      null, '{"full_name":"Val","email":"val@test.local"}', '{"name":"Bad","size":"xl"}')$$,
+  '22023', null, 'an invalid dog size is refused');
+select throws_ok(
+  $$select public.accept_booking_request('40000000-0000-0000-0000-000000000010', '20000000-0000-0000-0000-000000000001', '2030-01-16', '2030-01-16', '{3}', 'confirm',
+      null, null, '{"name":"Bad"}')$$,
+  '22023', null, 'an existing dog and a new dog together are refused');
+select throws_ok(
+  $$select public.accept_booking_request('40000000-0000-0000-0000-000000000010', null, '2030-01-16', '2030-01-16', '{3}', 'confirm',
+      null, '{"full_name":"Val","email":"not-an-email"}', '{"name":"Bad"}')$$,
+  '22023', null, 'a new owner needs a valid email');
 
 -- A booking with no bookable days can't be confirmed (Tuesday-only on a Monday).
 select throws_like(

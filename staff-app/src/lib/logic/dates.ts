@@ -26,10 +26,26 @@ export function isoWeekday(d: IsoDate): number {
   return js === 0 ? 7 : js;
 }
 
-/** Today's date on this computer, as YYYY-MM-DD. */
+/** The daycare's time zone: dates are Bilbao dates wherever the laptop is. */
+export const TIME_ZONE = 'Europe/Madrid';
+
+const isoInMadrid = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+/** Today's date in Bilbao, as YYYY-MM-DD. */
 export function todayIso(now: Date = new Date()): IsoDate {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const parts = Object.fromEntries(isoInMadrid.formatToParts(now).map((p) => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+/** The day itself if it is Monday-Friday, otherwise the following Monday. */
+export function nextWeekday(d: IsoDate): IsoDate {
+  const wd = isoWeekday(d);
+  return wd <= 5 ? d : addDays(d, 8 - wd);
 }
 
 export function isValidIso(d: unknown): d is IsoDate {

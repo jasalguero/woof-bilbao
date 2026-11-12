@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dictionaries, en, es } from './dict';
-import { interpolate, placeholders, translate } from './format';
+import { formatDate, interpolate, placeholders, translate } from './format';
 
 describe('i18n dictionaries', () => {
   const keys = (o: object) => Object.keys(o).sort();
@@ -41,5 +41,23 @@ describe('interpolate', () => {
   });
   it('leaves unknown placeholders alone', () => {
     expect(interpolate('{a} {b}', { a: 1 })).toBe('1 {b}');
+  });
+});
+
+describe('formatDate', () => {
+  const dt: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false };
+  it('shows timestamps in Bilbao time', () => {
+    // 23:30 UTC on 5 Jan is 00:30 on 6 Jan in Madrid.
+    expect(formatDate('en', '2026-01-05T23:30:00Z', dt)).toBe('6 Jan, 00:30');
+    // Summer time: UTC+2.
+    expect(formatDate('en', '2026-07-01T08:15:00+00:00', dt)).toBe('1 Jul, 10:15');
+  });
+  it('shows plain dates as that calendar day', () => {
+    expect(formatDate('en', '2026-12-01')).toBe('1 Dec 2026');
+    expect(formatDate('es', '2026-12-01', { day: 'numeric', month: 'long' })).toBe('1 de diciembre');
+  });
+  it('handles empty and invalid values', () => {
+    expect(formatDate('es', null)).toBe('–');
+    expect(formatDate('es', 'nonsense!')).toBe('nonsense!');
   });
 });

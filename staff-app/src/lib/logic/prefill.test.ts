@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingFromPayload, dogFromPayload, matchDogByName, ownerFromPayload, parsePayload } from './prefill';
+import { acceptTarget, bookingFromPayload, dogFromPayload, matchDogByName, ownerFromPayload, parsePayload } from './prefill';
 
 // Same shape as the seeded request and submit-booking's output.
 const seeded = {
@@ -74,5 +74,33 @@ describe('matchDogByName', () => {
   it('returns null without a match', () => {
     expect(matchDogByName(dogs, 'Beltza')).toBeNull();
     expect(matchDogByName(dogs, ' ')).toBeNull();
+  });
+});
+
+describe('acceptTarget', () => {
+  const p = parsePayload(seeded);
+  const newOwner = ownerFromPayload(p);
+  const newDog = dogFromPayload(p);
+
+  it('books an existing dog without creating anything', () => {
+    expect(acceptTarget({ ownerId: 'o1', newOwner: null, dogId: 'd1', newDog })).toEqual({
+      dogId: 'd1', ownerId: null, newOwner: null, newDog: null
+    });
+  });
+  it('creates a new dog for an existing owner', () => {
+    const t = acceptTarget({ ownerId: 'o1', newOwner: null, dogId: null, newDog: { ...newDog, name: ' Kuki ', breed: ' ' } });
+    expect(t).toMatchObject({ dogId: null, ownerId: 'o1', newOwner: null });
+    expect(t?.newDog).toMatchObject({ name: 'Kuki', breed: null, vaccines_up_to_date: true });
+  });
+  it('creates a new owner and dog together', () => {
+    const t = acceptTarget({ ownerId: null, newOwner: { ...newOwner, email: ' Leire@Example.com ' }, dogId: null, newDog });
+    expect(t?.ownerId).toBeNull();
+    expect(t?.newOwner).toMatchObject({ full_name: 'Leire Gómez', email: 'leire@example.com', language: 'es' });
+    expect(t?.newDog?.name).toBe('Kuki');
+  });
+  it('is null when something is missing', () => {
+    expect(acceptTarget({ ownerId: null, newOwner: null, dogId: null, newDog })).toBeNull();
+    expect(acceptTarget({ ownerId: null, newOwner: { ...newOwner, email: '' }, dogId: null, newDog })).toBeNull();
+    expect(acceptTarget({ ownerId: 'o1', newOwner: null, dogId: null, newDog: { ...newDog, name: '  ' } })).toBeNull();
   });
 });

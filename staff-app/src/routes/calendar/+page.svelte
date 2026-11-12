@@ -1,7 +1,8 @@
 <script lang="ts">
   import { getCapacity, getDayDogs, getOccupancy, type DayDog } from '#lib/api/calendar.ts';
   import { dayLoad, gridRange, maxDogsOn, monthGrid, shiftMonth } from '#lib/logic/calendar.ts';
-  import { todayIso, WEEKDAYS } from '#lib/logic/dates.ts';
+  import { nextWeekday, todayIso, WEEKDAYS } from '#lib/logic/dates.ts';
+  import { onMount } from 'svelte';
   import { t, fmtDate, fmtMonth } from '#lib/i18n/index.svelte.ts';
   import type { MessageKey } from '#lib/i18n/dict.ts';
   import type { Capacity, Occupancy } from '#lib/types.ts';
@@ -9,9 +10,16 @@
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import VaccineFlag from '#lib/components/VaccineFlag.svelte';
 
-  const today = todayIso();
-  let year = $state(+today.slice(0, 4));
-  let month = $state(+today.slice(5, 7));
+  // Today in Bilbao, kept current if the app stays open past midnight.
+  let today = $state(todayIso());
+  onMount(() => {
+    const timer = setInterval(() => (today = todayIso()), 60_000);
+    return () => clearInterval(timer);
+  });
+  // The calendar has no weekends: on Saturday or Sunday, start from Monday.
+  const start = nextWeekday(todayIso());
+  let year = $state(+start.slice(0, 4));
+  let month = $state(+start.slice(5, 7));
   const grid = $derived(monthGrid(year, month));
 
   let occupancy = $state(new Map<string, Occupancy>());
@@ -19,14 +27,18 @@
   let selected = $state<string | null>(null);
   let dayDogs = $state<DayDog[] | null>(null);
 
+  // Ignore answers for a month that is no longer shown (fast clicking).
+  let monthToken = 0;
   $effect(() => {
     const { from, to } = gridRange(grid);
+    const token = ++monthToken;
     Promise.all([getOccupancy(from, to), getCapacity(from, to)])
       .then(([occ, cap]) => {
+        if (token !== monthToken) return;
         occupancy = new Map(occ.filter((o) => o.day).map((o) => [o.day!, o]));
         capacity = cap;
       })
-      .catch(fail);
+      .catch((e) => token === monthToken && fail(e));
   });
 
   $effect(() => {
@@ -37,7 +49,7 @@
       .then((list) => {
         if (selected === day) dayDogs = list;
       })
-      .catch(fail);
+      .catch((e) => selected === day && fail(e));
   });
 
   function info(day: string) {
@@ -55,9 +67,11 @@
     selected = null;
   }
   function goToday() {
-    year = +today.slice(0, 4);
-    month = +today.slice(5, 7);
-    selected = today;
+    today = todayIso();
+    const day = nextWeekday(today);
+    year = +day.slice(0, 4);
+    month = +day.slice(5, 7);
+    selected = day;
   }
 </script>
 

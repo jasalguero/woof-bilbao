@@ -3,11 +3,11 @@
   import type { Dog, Owner } from '#lib/types.ts';
   import type { RequestWithHandler, AcceptMode } from '#lib/api/requests.ts';
   import { acceptRequest, declineRequest } from '#lib/api/requests.ts';
-  import { createOwner, findOwnerByEmail, listOwnerDogs, searchOwners } from '#lib/api/owners.ts';
-  import { createDog } from '#lib/api/dogs.ts';
+  import { findOwnerByEmail, listOwnerDogs, searchOwners } from '#lib/api/owners.ts';
   import { listClosedDays } from '#lib/api/settings.ts';
   import {
-    bookingFromPayload, dogFromPayload, matchDogByName, ownerFromPayload, parsePayload
+    acceptTarget, bookingFromPayload, dogFromPayload, matchDogByName, ownerFromPayload, parsePayload,
+    type AcceptTarget
   } from '#lib/logic/prefill.ts';
   import { expandBookingDays, isValidIso } from '#lib/logic/dates.ts';
   import { classifyError } from '#lib/logic/errors.ts';
@@ -48,8 +48,11 @@
   let busy = $state(false);
   let fullDays = $state<string[] | null>(null);
   let confirmAction = $state<'declined' | 'spam' | null>(null);
-  // The dog the last "Accept" used, so "Confirm anyway"/"Leave as pending" reuse it.
-  let acceptDogId = '';
+  // What the last "Accept" asked for, so "Confirm anyway"/"Leave as pending" send the same.
+  let lastTarget: AcceptTarget | null = null;
+  // Set when staff pick a dog themselves, so a late dog list can't override it.
+  let dogTouched = false;
+  let dogsToken = 0;
 
   const ownerId = $derived(
     ownerChoice === 'suggested' ? (suggested?.id ?? null) : ownerChoice === 'other' ? (otherOwner?.id ?? null) : null
@@ -71,18 +74,22 @@
   });
 
   // Load the chosen owner's dogs and preselect the one named in the form.
+  // A response for an owner that is no longer chosen is ignored, and an
+  // explicit pick by staff is never overridden.
   $effect(() => {
     const id = ownerId;
+    const token = ++dogsToken;
     dogs = [];
     dogChoice = 'new';
+    dogTouched = false;
     if (!id) return;
     listOwnerDogs(id)
       .then((list) => {
-        if (id !== ownerId) return;
+        if (token !== dogsToken) return;
         dogs = list;
-        dogChoice = matchDogByName(list, payload.dog.name)?.id ?? 'new';
+        if (!dogTouched) dogChoice = matchDogByName(list, payload.dog.name)?.id ?? 'new';
       })
-      .catch(fail);
+      .catch((e) => token === dogsToken && fail(e));
   });
 
   let searchTimer: ReturnType<typeof setTimeout>;
@@ -102,39 +109,26 @@
     if (!isValidIso(booking.start_date) || !isValidIso(booking.end_date) || booking.end_date < booking.start_date || !booking.weekdays.length) {
       return fail({ message: t('requests.badDates') });
     }
-    busy = true;
-    try {
-      // Create the owner and dog first; on a retry (e.g. after "no room") they
-      // are reused because the choice switches to the created records.
-      let oid = ownerId;
-      if (ownerChoice === 'new') {
-        const created = await createOwner({ ...newOwner, email: newOwner.email.trim() });
-        suggested = created;
-        ownerChoice = 'suggested';
-        oid = created.id;
-      }
-      let did = dogChoice;
-      if (did === 'new') {
-        const created = await createDog({ ...newDog, owner_id: oid! });
-        dogs = [...dogs, created];
-        did = created.id;
-        dogChoice = created.id;
-      }
-      acceptDogId = did;
-      await run('confirm');
-    } catch (e) {
-      fail(e);
-    } finally {
-      busy = false;
-    }
+    // A new owner and/or dog is created by the same database call as the
+    // booking, so a failed or abandoned accept leaves nothing behind.
+    const target = acceptTarget({
+      ownerId: ownerChoice === 'new' ? null : ownerId,
+      newOwner: ownerChoice === 'new' ? newOwner : null,
+      dogId: dogChoice === 'new' ? null : dogChoice,
+      newDog: dogChoice === 'new' ? newDog : null
+    });
+    if (!target) return fail({ message: t(dogChoice === 'new' && !newDog.name.trim() ? 'requests.chooseDog' : 'requests.chooseOwner') });
+    lastTarget = target;
+    await run('confirm');
   }
 
   async function run(mode: AcceptMode) {
+    if (!lastTarget) return;
     busy = true;
     try {
       const b = await acceptRequest({
+        ...lastTarget,
         requestId: request.id,
-        dogId: acceptDogId,
         start: booking.start_date,
         end: booking.end_date,
         weekdays: booking.weekdays,
@@ -236,10 +230,10 @@
     <section class="card stack">
       <h3>{t('requests.step2')}</h3>
       {#each dogs as d (d.id)}
-        <label class="check"><input type="radio" bind:group={dogChoice} value={d.id} />
+        <label class="check"><input type="radio" bind:group={dogChoice} value={d.id} onchange={() => (dogTouched = true)} />
           <strong>{d.name}</strong> <span class="muted">{d.breed ?? ''} {d.size ? t(`size.${d.size}` as MessageKey) : ''}</span></label>
       {/each}
-      <label class="check"><input type="radio" bind:group={dogChoice} value="new" /> {t('requests.newDog')}</label>
+      <label class="check"><input type="radio" bind:group={dogChoice} value="new" onchange={() => (dogTouched = true)} /> {t('requests.newDog')}</label>
       {#if dogChoice === 'new'}
         <div class="indent"><DogFields bind:dog={newDog} /></div>
       {/if}

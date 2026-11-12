@@ -33,19 +33,32 @@ export async function listDogAttendance(dogId: string): Promise<Attendance[]> {
   );
 }
 
-const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-/** Uploads to dog-files/dogs/<dog_id>/photo.<ext> (private bucket) and records the path. */
+/** Where a dog's photo lives in the private dog-files bucket. */
+export function photoPath(dogId: string): string {
+  return `dogs/${dogId}/photo`;
+}
+
+/**
+ * Uploads the dog's photo and records its path. The object name has no
+ * extension (the content type is stored with it), so a new photo always
+ * replaces the old one instead of leaving a photo.jpg behind a photo.png.
+ */
 export async function uploadDogPhoto(dogId: string, file: File): Promise<string> {
-  const ext = EXT[file.type];
-  if (!ext) throw new Error(`Unsupported image type: ${file.type || 'unknown'}`);
-  const path = `dogs/${dogId}/photo.${ext}`;
-  must(await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type }));
+  if (!PHOTO_TYPES.includes(file.type)) throw new Error(`Unsupported image type: ${file.type || 'unknown'}`);
+  const path = photoPath(dogId);
+  must(await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type, cacheControl: '0' }));
   await updateDog(dogId, { photo_path: path });
   return path;
 }
 
-/** A short-lived URL for a private photo. */
-export async function photoUrl(path: string): Promise<string> {
-  return must(await supabase.storage.from(BUCKET).createSignedUrl(path, 3600)).signedUrl;
+/** A short-lived URL for a private photo, or null if the object is missing. */
+export async function photoUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+  if (error || !data) {
+    console.warn(`dog photo ${path} not available:`, error?.message);
+    return null;
+  }
+  return data.signedUrl;
 }

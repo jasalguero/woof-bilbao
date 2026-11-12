@@ -70,8 +70,10 @@ Only ever use the **publishable** key. The secret / service-role key bypasses
 row-level security and must never ship inside the app.
 
 The window's Content Security Policy (`src-tauri/tauri.conf.json`) allows
-`http://127.0.0.1:54321` and `https://*.supabase.co`. If the project ever uses a
-custom domain, add it to `connect-src` and `img-src` there.
+`http://127.0.0.1:54321` and `https://*.supabase.co`. **A custom Supabase
+domain (e.g. `api.woofbilbao.com`) must be added to `connect-src` (as both
+`https://` and `wss://`) and `img-src` in `src-tauri/tauri.conf.json`**, or
+the app will not be able to reach it or show dog photos.
 
 New staff: invite them from the Supabase dashboard (Authentication → Users →
 Invite user) and add their row to `public.staff`, as described in
@@ -85,9 +87,11 @@ authorised and signed out.
   Staff pick the owner (an existing one with the same email is suggested) or
   create one, pick one of the owner's dogs or create one (prefilled from the
   form), check the dates and weekdays, then:
-  - **Accept** books the dog and confirms it. If a day is full the app lists
-    the full days and offers **Confirm anyway** (overbook) or **Leave as
-    pending**;
+  - **Accept** books the dog and confirms it, creating the new owner and/or
+    dog in the same database transaction (`accept_booking_request`), so a
+    failed or abandoned accept leaves nothing behind. If a day is full the
+    app lists the full days and offers **Confirm anyway** (overbook) or
+    **Leave as pending**;
   - **Decline** or **Mark as spam**.
   Accepting or declining queues an email to the owner in their language
   (emails are only queued for now; the sender comes later). Spam gets none.
@@ -97,11 +101,12 @@ authorised and signed out.
   status and a soft vaccine reminder.
 - **Dogs**: a searchable list and a profile page to edit the dog (including
   "vaccines checked until" and notes), upload a photo (private `dog-files`
-  bucket, shown with a signed URL), see the owner's contact details, confirm,
+  bucket at `dogs/<dog_id>/photo`, shown with a signed URL), see the owner's contact details, confirm,
   cancel or move bookings, and see attendance history (read-only for now).
 - **Owners**: a searchable list, and an editable detail page with contact
   details, language, notes, their dogs and the messages queued to them.
-- **Settings** (admins only): default daily maximum, closed days, staff roles,
+- **Settings** (admins only): default daily maximum, closed days (closing a
+  day that has bookings asks first and lists the dogs), staff roles,
   and your own language. Everyone can switch between Spanish and English from
   the header; the choice is saved for the staff member and on the computer.
 

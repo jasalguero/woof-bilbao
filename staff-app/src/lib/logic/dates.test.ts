@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, expandBookingDays, isoWeekday, isValidIso, normaliseWeekdays, todayIso } from './dates';
+import { addDays, expandBookingDays, isoWeekday, isValidIso, nextWeekday, normaliseWeekdays, todayIso } from './dates';
 
 describe('date helpers', () => {
   it('knows ISO weekdays', () => {
@@ -17,8 +17,18 @@ describe('date helpers', () => {
     expect(isValidIso('2026-1-1')).toBe(false);
     expect(isValidIso(null)).toBe(false);
   });
-  it('formats the local date', () => {
-    expect(todayIso(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+  it('gives today in Bilbao, not in the computer time zone', () => {
+    expect(todayIso(new Date('2026-01-05T12:00:00Z'))).toBe('2026-01-05');
+    // 23:30 UTC is already the next day in Madrid (UTC+1 in winter, UTC+2 in summer).
+    expect(todayIso(new Date('2026-01-05T23:30:00Z'))).toBe('2026-01-06');
+    expect(todayIso(new Date('2026-07-01T22:30:00Z'))).toBe('2026-07-02');
+    expect(todayIso(new Date('2026-07-01T21:30:00Z'))).toBe('2026-07-01');
+  });
+  it('snaps weekends to the next Monday', () => {
+    expect(nextWeekday('2026-11-13')).toBe('2026-11-13'); // Friday
+    expect(nextWeekday('2026-11-14')).toBe('2026-11-16'); // Saturday
+    expect(nextWeekday('2026-11-15')).toBe('2026-11-16'); // Sunday
+    expect(nextWeekday('2026-12-27')).toBe('2026-12-28');
   });
   it('normalises weekdays', () => {
     expect(normaliseWeekdays([5, '2', 2, 6, 0, 1.5, 'x'])).toEqual([2, 5]);

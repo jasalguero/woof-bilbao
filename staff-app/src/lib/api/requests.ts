@@ -1,6 +1,8 @@
 import { supabase } from '../supabase';
 import type { Booking, BookingRequest } from '../types';
 import { must } from './util';
+import type { Json } from '../database.types.ts';
+import type { AcceptTarget } from '../logic/prefill.ts';
 
 export type AcceptMode = 'confirm' | 'overbook' | 'pending';
 
@@ -30,12 +32,12 @@ export async function countNewRequests(): Promise<number> {
 
 /**
  * Books the dog and marks the request accepted in one transaction
- * (accept_booking_request). With mode 'confirm' a full day throws the
- * capacity error (hint 'full_days') and nothing is saved.
+ * (accept_booking_request), creating the new owner and/or dog in that same
+ * transaction. With mode 'confirm' a full day throws the capacity error
+ * (hint 'full_days') and nothing at all is saved.
  */
-export async function acceptRequest(args: {
+export async function acceptRequest(args: AcceptTarget & {
   requestId: string;
-  dogId: string;
   start: string;
   end: string;
   weekdays: number[];
@@ -44,11 +46,15 @@ export async function acceptRequest(args: {
   return must(
     await supabase.rpc('accept_booking_request', {
       p_request_id: args.requestId,
-      p_dog_id: args.dogId,
+      // Null when a new dog is created (the generated type can't express it).
+      p_dog_id: args.dogId as string,
       p_start_date: args.start,
       p_end_date: args.end,
       p_weekdays: args.weekdays,
-      p_mode: args.mode
+      p_mode: args.mode,
+      p_owner_id: args.ownerId ?? undefined,
+      p_new_owner: (args.newOwner ?? undefined) as Json | undefined,
+      p_new_dog: (args.newDog ?? undefined) as Json | undefined
     })
   );
 }
