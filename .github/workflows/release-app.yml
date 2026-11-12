@@ -24,6 +24,7 @@ on:
 permissions:
   contents: write
 
+# One release at a time (releases are rare; a third queued run would replace a pending one).
 concurrency:
   group: release-app
   cancel-in-progress: false

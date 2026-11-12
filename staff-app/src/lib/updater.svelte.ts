@@ -53,9 +53,7 @@ async function release() {
 export async function checkForUpdates(manual = false): Promise<void> {
   if (!isTauri()) return;
   if (isBusy(updater.state)) return; // already checking, or downloading/installing
-  // An update is already found and waiting for staff: an automatic re-check
-  // could only hide it (offline) or make the banner flicker.
-  if (!manual && updater.state.kind === 'available' && pending) return;
+  const before = updater.state;
   send({ type: 'check', manual });
   try {
     const update = await check({ timeout: 30_000 });
@@ -74,6 +72,11 @@ export async function checkForUpdates(manual = false): Promise<void> {
     });
   } catch (err) {
     log('warn', `update check failed: ${message(err)}`);
+    // A failed automatic re-check (e.g. offline) keeps an update already found.
+    if (!manual && before.kind === 'available' && pending) {
+      updater.state = before;
+      return;
+    }
     send({ type: 'failed', message: message(err) });
   }
 }

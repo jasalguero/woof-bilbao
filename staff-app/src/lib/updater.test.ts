@@ -127,6 +127,26 @@ describe('in the desktop app', () => {
     expect(m.relaunch).not.toHaveBeenCalled();
   });
 
+  it('keeps a found update when an automatic re-check fails', async () => {
+    m.check.mockResolvedValueOnce(fakeUpdate('0.2.0'));
+    await checkForUpdates(false);
+    m.check.mockRejectedValueOnce(new Error('offline'));
+    await checkForUpdates(false);
+    expect(updater.state).toMatchObject({ kind: 'available', info: { version: '0.2.0' } });
+    expect(showBanner(updater.state)).toBe(true);
+  });
+
+  it('shows a newer release on an automatic check after "Later"', async () => {
+    m.check.mockResolvedValueOnce(fakeUpdate('0.2.0'));
+    await checkForUpdates(false);
+    dismissUpdate();
+    expect(showBanner(updater.state)).toBe(false);
+    m.check.mockResolvedValueOnce(fakeUpdate('0.3.0'));
+    await checkForUpdates(false);
+    expect(updater.state).toMatchObject({ kind: 'available', info: { version: '0.3.0' } });
+    expect(showBanner(updater.state)).toBe(true);
+  });
+
   it('keeps a dismissed version hidden on automatic checks only', async () => {
     m.check.mockImplementation(async () => fakeUpdate('0.2.0'));
     await checkForUpdates(false);
