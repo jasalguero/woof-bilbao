@@ -1,6 +1,6 @@
 [package]
 name = "woof-bilbao-staff"
-version = "0.1.0"
+version = "0.1.1"
 description = "Woof Bilbao staff app"
 authors = ["Woof Bilbao"]
 edition = "2021"
