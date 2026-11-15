@@ -2,7 +2,7 @@
   var T = {
     es: {
       brand: "Woof Bilbao", tag: "Guardería canina de día",
-      nav_about: "El lugar", nav_day: "Un día aquí", nav_dogs: "Residentes", nav_book: "Reservar",
+      nav_about: "El lugar", nav_day: "Un día aquí", nav_dogs: "Residentes", nav_prices: "Precios", nav_book: "Reservar",
       hero_kicker: "Guardería canina en Bilbao",
       hero_title: "Tu perro, bien cuidado mientras tú trabajas",
       hero_sub: "Pasa el día con nosotros: paseos junto a la ría, comida a su hora y mucho juego con otros perros.",
@@ -23,6 +23,10 @@
       polo_d: "Anfitrión de la casa. Es el primero en la puerta y el último en cansarse.",
       daisy_d: "Organiza los juegos y vigila que nadie se quede fuera del grupo.",
       dog_note: "Descripción y foto provisionales",
+      pr_title: "Precios", pr_intro: "El mismo precio para perros de cualquier tamaño. Sin cuotas mensuales: reservas los días que necesitas.",
+      pr_day: "Día suelto", pr_day_note: "Un día completo de guardería, de lunes a viernes.",
+      pr_pack_name: "Bono de {days} días", pr_pack_note: "Sale a {per} el día. Válido {months} meses para cualquiera de tus perros.",
+      pr_vat: "Precios sin IVA: se añade el {vat} % de IVA.", pr_second: "Segundo perro de la misma familia: {pct} % de descuento.",
       book_title: "Reserva una plaza", book_intro: "Cuéntanos quién es tu perro y para qué fechas necesitas plaza. Te responderemos para confirmar.",
       f_owner: "Tus datos", f_dog: "Tu perro", f_dates: "Fechas",
       f_name: "Nombre y apellidos", f_email: "Correo electrónico", f_phone: "Teléfono",
@@ -52,7 +56,7 @@
     },
     en: {
       brand: "Woof Bilbao", tag: "Doggy daycare",
-      nav_about: "The place", nav_day: "A day here", nav_dogs: "Residents", nav_book: "Book",
+      nav_about: "The place", nav_day: "A day here", nav_dogs: "Residents", nav_prices: "Prices", nav_book: "Book",
       hero_kicker: "Dog daycare in Bilbao",
       hero_title: "Your dog, well looked after while you work",
       hero_sub: "Spend the day with us: walks along the river, meals on time and plenty of play with other dogs.",
@@ -73,6 +77,10 @@
       polo_d: "The host of the house. First at the door and last to get tired.",
       daisy_d: "Organises the games and makes sure nobody is left out of the group.",
       dog_note: "Provisional description and photo",
+      pr_title: "Prices", pr_intro: "The same price for dogs of every size. No monthly plans: book the days you need.",
+      pr_day: "Single day", pr_day_note: "A full day of daycare, Monday to Friday.",
+      pr_pack_name: "{days}-day pack", pr_pack_note: "Works out at {per} a day. Valid for {months} months, for any of your dogs.",
+      pr_vat: "Prices exclude VAT: {vat}% VAT is added.", pr_second: "Second dog from the same household: {pct}% off.",
       book_title: "Book a spot", book_intro: "Tell us about your dog and which dates you need. We will get back to you to confirm.",
       f_owner: "Your details", f_dog: "Your dog", f_dates: "Dates",
       f_name: "Full name", f_email: "Email", f_phone: "Phone",
@@ -104,6 +112,42 @@
   var lang = "es";
   try { var s = localStorage.getItem("woof-lang"); if (s === "es" || s === "en") lang = s; else if ((navigator.language || "").slice(0, 2) === "en") lang = "en"; } catch (e) {}
   function t(k) { return T[lang][k] || k; }
+  function fill(k, vars) { return t(k).replace(/\{(\w+)\}/g, function (m, n) { return n in vars ? vars[n] : m; }); }
+  // Prices come from the staff app's settings through the public-prices Edge
+  // Function (set at build time from WOOF_PRICES_URL, see tools/build.py).
+  // Without it (mock-up mode) the page shows these defaults. Amounts are in
+  // euro cents, without VAT.
+  var PRICES_URL = "{{PRICES_URL}}";
+  var prices = { day_price_cents: 3000, pack_price_cents: 27000, pack_days: 10, pack_valid_months: 6, vat_rate: 21, second_dog_discount_pct: 0 };
+  function eur(cents) {
+    var whole = cents % 100 === 0;
+    try {
+      return new Intl.NumberFormat(lang === "es" ? "es-ES" : "en-GB", { style: "currency", currency: "EUR", minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100);
+    } catch (e) { return (cents / 100).toFixed(whole ? 0 : 2) + " €"; }
+  }
+  function pct(n) { return String(Math.round(Number(n) * 100) / 100).replace(".", lang === "es" ? "," : "."); }
+  function renderPrices() {
+    var box = document.querySelector("[data-prices]"); if (!box) return;
+    if (!prices) { box.hidden = true; return; }
+    box.hidden = false;
+    var p = prices, per = Math.round(p.pack_price_cents / p.pack_days);
+    var text = {
+      pack_name: fill("pr_pack_name", { days: p.pack_days }),
+      pack_note: fill("pr_pack_note", { per: eur(per), months: p.pack_valid_months }),
+      vat: fill("pr_vat", { vat: pct(p.vat_rate) }),
+      second: fill("pr_second", { pct: pct(p.second_dog_discount_pct) })
+    };
+    box.querySelector('[data-price="day"]').textContent = eur(p.day_price_cents) + " + " + (lang === "es" ? "IVA" : "VAT");
+    box.querySelector('[data-price="pack"]').textContent = eur(p.pack_price_cents) + " + " + (lang === "es" ? "IVA" : "VAT");
+    box.querySelectorAll("[data-price-text]").forEach(function (el) { el.textContent = text[el.getAttribute("data-price-text")]; });
+    box.querySelector('[data-price-text="second"]').hidden = !(Number(p.second_dog_discount_pct) > 0);
+  }
+  if (PRICES_URL && PRICES_URL.indexOf("{{") !== 0) {
+    prices = null; // hidden until the real prices arrive, never a stale guess
+    fetch(PRICES_URL).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (b) { if (b && b.current && b.current.pack_days > 0) { prices = b.current; renderPrices(); } })
+      .catch(function () {});
+  }
   function apply() {
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
@@ -111,6 +155,7 @@
     document.querySelectorAll("[data-lang]").forEach(function (b) { var on = b.getAttribute("data-lang") === lang; b.setAttribute("aria-pressed", on); });
     var err = document.getElementById("form-error"); if (err && err.dataset.key) err.textContent = t(err.dataset.key);
     if (window.woofRenderSummary) window.woofRenderSummary();
+    renderPrices();
   }
   document.addEventListener("click", function (e) {
     var b = e.target.closest("[data-lang]"); if (!b) return;

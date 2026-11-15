@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { dictionaries, en, es } from './dict';
 import { formatDate, interpolate, placeholders, translate } from './format';
-import { ATTENDANCE_HINTS } from '../logic/errors';
+import { ATTENDANCE_HINTS, PAYMENT_HINTS } from '../logic/errors';
+import { PAYMENT_METHODS } from '../logic/money';
 
 describe('i18n dictionaries', () => {
   const keys = (o: object) => Object.keys(o).sort();
@@ -29,6 +30,9 @@ describe('i18n dictionaries', () => {
       ...['m', 'f'].map((s) => `sex.${s}`),
       ...[1, 2, 3, 4, 5].map((d) => `wd.${d}`),
       ...ATTENDANCE_HINTS.map((h) => `error.attendance.${h}`),
+      ...PAYMENT_HINTS.map((h) => `error.payment.${h}`),
+      ...PAYMENT_METHODS.map((m) => `method.${m}`),
+      ...['day', 'pack', 'adjustment'].map((k) => `charge.kind.${k}`),
       'lang.es', 'lang.en'
     ];
     for (const k of needed) expect(es, k).toHaveProperty([k]);

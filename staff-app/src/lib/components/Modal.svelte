@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  let { title, onclose, children, actions }: {
+  let { title, onclose, children, actions, wide = false }: {
     title: string;
     onclose: () => void;
     children: Snippet;
     actions?: Snippet;
+    /** Room for a table (payment dialogs). */
+    wide?: boolean;
   } = $props();
 
   let dialog: HTMLDialogElement;
@@ -14,7 +16,7 @@
   });
 </script>
 
-<dialog bind:this={dialog} oncancel={(e) => { e.preventDefault(); onclose(); }} aria-labelledby="modal-title">
+<dialog bind:this={dialog} class:wide oncancel={(e) => { e.preventDefault(); onclose(); }} aria-labelledby="modal-title">
   <h2 id="modal-title">{title}</h2>
   <div class="body">{@render children()}</div>
   {#if actions}<div class="actions row">{@render actions()}</div>{/if}
@@ -30,6 +32,7 @@
     padding: 1.2rem 1.4rem;
     width: min(30rem, calc(100vw - 2rem));
   }
+  dialog.wide { width: min(46rem, calc(100vw - 2rem)); }
   dialog::backdrop { background: rgb(29 27 58 / 0.45); }
   .actions { justify-content: flex-end; margin-top: 1.2rem; }
   .actions :global(button) { white-space: nowrap; }

@@ -16,6 +16,7 @@
   import WeekdayPicker from '#lib/components/WeekdayPicker.svelte';
   import FullDaysDialog from '#lib/components/FullDaysDialog.svelte';
   import Modal from '#lib/components/Modal.svelte';
+  import DogAbsences from '#lib/components/DogAbsences.svelte';
 
   const id = $derived(page.params.id ?? '');
 
@@ -225,6 +226,8 @@
       </table>
     {/if}
   </section>
+
+  {#key dog.id}<DogAbsences dogId={dog.id} />{/key}
 
   <section class="card">
     <h2>{t('dogs.attendance')}</h2>

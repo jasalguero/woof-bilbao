@@ -12,6 +12,7 @@
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import VaccineFlag from '#lib/components/VaccineFlag.svelte';
   import Modal from '#lib/components/Modal.svelte';
+  import OwnerAccount from '#lib/components/OwnerAccount.svelte';
 
   const id = $derived(page.params.id ?? '');
   let owner = $state<Owner | null>(null);
@@ -114,6 +115,8 @@
       {/if}
     </section>
   </div>
+
+  {#key owner.id}<OwnerAccount {owner} />{/key}
 
   <section class="card">
     <h2>{t('owners.messages')}</h2>

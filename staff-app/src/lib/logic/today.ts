@@ -23,7 +23,7 @@ export interface TodayDog {
   vaccines_up_to_date: boolean;
   vaccines_checked_until: IsoDate | null;
   active: boolean;
-  owner: { full_name: string; phone: string | null };
+  owner: { id?: string; full_name: string; phone: string | null };
 }
 
 export interface AttendanceRow {

@@ -12,11 +12,19 @@ export interface DbErrorLike {
 export const ATTENDANCE_HINTS = ['closed_day', 'not_booked', 'inactive_dog', 'not_checked_in', 'already_checked_out'] as const;
 export type AttendanceProblem = (typeof ATTENDANCE_HINTS)[number];
 
+/** Hints raised by record_payment / sell_pack / queue_balance_reminder. */
+export const PAYMENT_HINTS = [
+  'charge_not_open', 'bad_amount', 'no_prices', 'nothing_owed', 'no_email', 'recently_reminded',
+  'amount_below_selected', 'override_admin_only', 'backdate_admin_only', 'prices_in_force', 'bad_refund'
+] as const;
+export type PaymentProblem = (typeof PAYMENT_HINTS)[number];
+
 export type KnownError =
   | { kind: 'full_days'; days: IsoDate[] }
   | { kind: 'no_days' }
   | { kind: 'already_handled' }
   | { kind: 'attendance'; reason: AttendanceProblem }
+  | { kind: 'payment'; reason: PaymentProblem }
   | { kind: 'over_capacity'; count: number; max: number }
   | { kind: 'duplicate' }
   | { kind: 'forbidden' }
@@ -38,6 +46,9 @@ export function classifyError(err: unknown): KnownError {
   }
   if ((ATTENDANCE_HINTS as readonly string[]).includes(e.hint ?? '')) {
     return { kind: 'attendance', reason: e.hint as AttendanceProblem };
+  }
+  if ((PAYMENT_HINTS as readonly string[]).includes(e.hint ?? '')) {
+    return { kind: 'payment', reason: e.hint as PaymentProblem };
   }
   if (e.code === '23505') return { kind: 'duplicate' };
   if (e.code === '42501') return { kind: 'forbidden' };

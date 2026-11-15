@@ -2,10 +2,12 @@
   import { onMount } from 'svelte';
   import { checkIn, checkOut, getToday, undoCheckIn, undoCheckOut, type TodayData } from '#lib/api/today.ts';
   import { listDogs, photoUrls, type DogWithOwner } from '#lib/api/dogs.ts';
+  import { listAbsencesOn, listOwing } from '#lib/api/payments.ts';
+  import { formatMoney } from '#lib/logic/money.ts';
   import { buildToday, countToday, dayKind, walkInCandidates, type TodayEntry } from '#lib/logic/today.ts';
   import { todayIso } from '#lib/logic/dates.ts';
   import { watchTable } from '#lib/realtime.ts';
-  import { t, fmtDate } from '#lib/i18n/index.svelte.ts';
+  import { i18n, t, fmtDate } from '#lib/i18n/index.svelte.ts';
   import type { MessageKey } from '#lib/i18n/dict.ts';
   import { classifyError } from '#lib/logic/errors.ts';
   import { fail, notice, ok } from '#lib/toast.svelte.ts';
@@ -17,6 +19,10 @@
   let data = $state<TodayData | null>(null);
   let photos = $state(new Map<string, string>());
   let busy = $state<string | null>(null);
+  // Soft reminders only: what each owner owes, and dogs whose owner said they
+  // won't come. Neither ever blocks a check-in.
+  let owing = $state(new Map<string, number>());
+  let absent = $state(new Set<string>());
 
   const kind = $derived(dayKind(day, data?.capacity ?? []));
   const entries = $derived(data ? buildToday(data.booked, data.attendance) : []);
@@ -31,6 +37,15 @@
       const d = await getToday(forDay);
       if (mine !== token) return;
       data = d;
+      const ownerIds = [...d.booked.map((b) => b.dog.owner.id), ...d.attendance.map((a) => a.dog.owner.id)]
+        .filter((x): x is string => Boolean(x));
+      Promise.all([listOwing(ownerIds), listAbsencesOn(forDay)])
+        .then(([o, a]) => {
+          if (mine !== token) return;
+          owing = o;
+          absent = new Set(a.map((x) => x.dog_id));
+        })
+        .catch((e) => console.warn('balances not available', e));
       const paths = [...d.booked.map((b) => b.dog.photo_path), ...d.attendance.map((a) => a.dog.photo_path)]
         .filter((p): p is string => Boolean(p) && !photos.has(p!));
       if (paths.length) {
@@ -240,6 +255,8 @@
               <span class="tags">
                 <span class="badge">{t(e.dog.size ? (`size.${e.dog.size}` as MessageKey) : 'size.none')}</span>
                 {#if !e.booked}<span class="badge walkin">{t('today.walkIn')}</span>{/if}
+                {#if absent.has(e.dog.id) && e.presence === 'expected'}<span class="badge">{t('today.absent')}</span>{/if}
+                {#if e.dog.owner.id && owing.has(e.dog.owner.id)}<a class="badge warn" href="/owners/{e.dog.owner.id}">{t('today.owes', { amount: formatMoney(i18n.lang, owing.get(e.dog.owner.id)!) })}</a>{/if}
                 <VaccineFlag dog={e.dog} />
               </span>
               <span class="small">

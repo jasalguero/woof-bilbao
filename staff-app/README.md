@@ -1,7 +1,7 @@
 # Woof Bilbao Staff (desktop app)
 
 The app the team uses every day: check dogs in and out, handle booking
-requests, see the calendar and keep dog and owner records. Staff only, on Windows, macOS and Linux; owners never
+requests, see the calendar, keep dog and owner records and record payments. Staff only, on Windows, macOS and Linux; owners never
 install it (they use the website form).
 
 It is a [Tauri 2](https://tauri.app) window around a SvelteKit single-page app
@@ -96,7 +96,10 @@ The app opens on **Today** after signing in.
   is already at the daily maximum it says so ("There are already 12/12 dogs
   today") and only checks the dog in if you choose **Let in anyway**. Counters
   show expected (and how many are still to come), here now, gone home and
-  walk-ins. Weekends and closed days show a friendly closed message instead.
+  walk-ins. A dog whose owner owes money shows a small "Owes €X" tag (a link
+  to the owner's account; it never blocks anything), and a dog whose owner
+  said it won't come shows that too. Weekends and closed days show a friendly
+  closed message instead.
   The screen updates live when a colleague checks a dog in or out on another
   computer, and moves to the new day at midnight if left open; tapping a
   button on yesterday's list just reloads today's instead. All of it goes
@@ -123,14 +126,50 @@ The app opens on **Today** after signing in.
 - **Dogs**: a searchable list and a profile page to edit the dog (including
   "vaccines checked until" and notes), upload a photo (private `dog-files`
   bucket at `dogs/<dog_id>/photo`, shown with a signed URL), see the owner's contact details, confirm,
-  cancel or move bookings, and see attendance history (check-in and check-out
-  happen on Today).
+  cancel or move bookings, record **absences** (the owner told us the dog
+  won't come on a booked day, and when they told us: with 24 hours' notice,
+  i.e. before 08:00 the day before, that day is not charged; staff record
+  the notice as it comes in, only admins can enter an earlier time), and see
+  attendance history (check-in and check-out happen on Today).
 - **Owners**: a searchable list, and an editable detail page with contact
-  details, language, notes, their dogs and the messages queued to them.
+  details, language, notes, their dogs, their **account** and the messages
+  queued to them. The account shows the balance (what they owe, or their
+  credit), unpaid days, packs (days left, expiry), every charge and payment.
+  A payment pays the items ticked for it; money without ticked items pays
+  the oldest items first. Each charge shows as paid, part paid (with what is
+  left) or unpaid.
+  Opening it first charges any booked or attended days not charged yet, so
+  today's day can be paid on the spot. Any staff member can:
+  - **Record payment** (cash, card terminal, Bizum or bank transfer): tick the
+    items being paid, change an unpaid day's price or discount on the fly (a
+    special price, the second-dog discount; down to half price, free or less
+    needs an admin), and enter the amount received. It must cover what is
+    ticked (more stays on account); for a part payment, untick everything and
+    it pays the oldest items first. The date can be in the past (e.g. a
+    transfer that arrived yesterday, or month-end settling);
+  - **Sell pack**: paid upfront; days, price, VAT and expiry start from the
+    current prices and can be changed for this sale. Unpaid days from today on
+    move onto the new pack;
+  - **Send reminder**: queues a polite payment-reminder email in the owner's
+    language (at most one every 3 days). Owing money never blocks a check-in.
+  Admins also get **Refund** of a chosen payment, never more than it (unused pack days are never refunded; they stay
+  as credit), **Correction** (a manual plus or minus on the account), and can
+  edit or delete payments and void charges. Row-level security enforces this
+  in the database, not just in the app.
+- **Payments** (admins): the monthly report. Income by payment method
+  (received, refunded, net), what was charged in the month (net, VAT and
+  total by days, packs and corrections) and who owed what at the end of the
+  month, each exportable as CSV (`;` and decimal comma in Spanish, `,` and
+  decimal point in English; opens straight in Excel).
 - **Settings**: for everyone, your own language and the **app version** with
   a **Check for updates** button (see "Releases and updates"). Admins also
   get the default daily maximum, closed days (closing a day that has
-  bookings asks first and lists the dogs) and staff roles. Everyone can switch between Spanish and English from
+  bookings asks first and lists the dogs), staff roles and **Prices**: the
+  day price, pack price, pack size, pack validity, VAT rate and second-dog
+  discount, each as a price list valid from a date (so a price rise can be
+  scheduled; only from tomorrow on, and the list in force never changes).
+  Charges already made and packs already sold keep their price;
+  the public website shows the price list in force. Everyone can switch between Spanish and English from
   the header; the choice is saved for the staff member and on the computer.
 
 Vaccines never block anything: the reminder appears when the owner didn't
@@ -166,7 +205,8 @@ staff-app/
     lib/
       api/                  small typed wrappers around supabase-js, one per area
       logic/                pure functions (calendar grid, dates, request prefill,
-                            error parsing, vaccine reminder, Today list and counters)
+                            error parsing, vaccine reminder, Today list and counters,
+                            money/VAT maths, absence notice, CSV and the monthly report)
                             with *.test.ts beside them
       i18n/                 es/en dictionary (dict.ts) and the t() helper
       components/           shared Svelte components

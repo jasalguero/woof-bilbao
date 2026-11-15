@@ -5,6 +5,7 @@
   import { getDayDogs, type DayDog } from '#lib/api/calendar.ts';
   import Modal from '#lib/components/Modal.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
+  import PriceSettings from '#lib/components/PriceSettings.svelte';
   import { session, isAdmin, changeLanguage } from '#lib/session.svelte.ts';
   import { i18n, t, fmtDate } from '#lib/i18n/index.svelte.ts';
   import { todayIso } from '#lib/logic/dates.ts';
@@ -165,6 +166,8 @@
       {/if}
       <label class="check small muted"><input type="checkbox" bind:checked={showPast} /> {t('settings.showPast')}</label>
     </section>
+
+    <PriceSettings />
 
     <section class="card stack wide">
       <h2>{t('settings.staff')}</h2>
