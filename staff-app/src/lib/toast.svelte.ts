@@ -46,6 +46,8 @@ export function describeError(err: unknown): string {
       return t('error.overCapacity', { count: e.count, max: e.max });
     case 'attendance':
       return t(`error.attendance.${e.reason}`);
+    case 'payment':
+      return t(`error.payment.${e.reason}`);
     case 'duplicate':
       return t('error.duplicate');
     case 'forbidden':

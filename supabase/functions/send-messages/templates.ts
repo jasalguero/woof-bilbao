@@ -10,7 +10,9 @@
 //     { owner, dog, from, to, weekdays, booking_status: 'confirmed' | 'pending' }
 //   vaccine_reminder:
 //     { owner, dog, next_day, checked_until, reason: 'not_confirmed' | 'expired' | 'expiring' }
-import { dateRange, escapeHtml, type Lang, longDate, text, weekdaysText } from "./format.ts";
+//   balance_reminder (the only template that mentions money):
+//     { owner, dogs: string[], balance_cents, unpaid_days, since }
+import { dateRange, escapeHtml, type Lang, longDate, money, namesList, text, weekdaysText } from "./format.ts";
 
 export type { Lang };
 
@@ -192,6 +194,45 @@ export const templates: Record<string, Template> = {
             ? `Could you bring the vaccination booklet on the next visit, on ${next}, or reply to this email with a photo of it?`
             : "Could you bring the vaccination booklet on the next visit, or reply to this email with a photo of it?",
           "It's just a reminder: the booking stays as it is. Thanks for helping us keep everyone healthy!",
+        ],
+      };
+    },
+  },
+
+  balance_reminder: {
+    es: (d) => {
+      const dogs = namesList("es", d.dogs);
+      const amount = money("es", d.balance_cents);
+      const days = Number(d.unpaid_days) || 0;
+      const since = longDate("es", d.since, true);
+      const detail = days > 0
+        ? ` (${days === 1 ? "1 día" : `${days} días`} de guardería${since ? `, desde el ${since}` : ""})`
+        : "";
+      return {
+        subject: dogs ? `Recordatorio de pago de Woof Bilbao (${dogs})` : "Recordatorio de pago de Woof Bilbao",
+        greeting: greet.es(d),
+        paragraphs: [
+          `Te escribimos para recordarte que tienes un saldo pendiente de ${amount || "una cantidad"}${detail}.`,
+          "Puedes pagarlo cuando vengas (en efectivo, con tarjeta o por Bizum) o por transferencia. Si ya lo has pagado, no hagas caso de este mensaje.",
+          `Es solo un recordatorio: todo sigue igual${dogs ? ` para ${dogs}` : ""}. ¡Gracias!`,
+        ],
+      };
+    },
+    en: (d) => {
+      const dogs = namesList("en", d.dogs);
+      const amount = money("en", d.balance_cents);
+      const days = Number(d.unpaid_days) || 0;
+      const since = longDate("en", d.since, true);
+      const detail = days > 0
+        ? ` (${days === 1 ? "1 day" : `${days} days`} of daycare${since ? `, since ${since}` : ""})`
+        : "";
+      return {
+        subject: dogs ? `Payment reminder from Woof Bilbao (${dogs})` : "Payment reminder from Woof Bilbao",
+        greeting: greet.en(d),
+        paragraphs: [
+          `Just a friendly reminder that you have an outstanding balance of ${amount || "an amount"}${detail}.`,
+          "You can pay next time you come (cash, card or Bizum) or by bank transfer. If you've already paid, please ignore this message.",
+          `It's only a reminder: nothing changes${dogs ? ` for ${dogs}` : ""}. Thank you!`,
         ],
       };
     },

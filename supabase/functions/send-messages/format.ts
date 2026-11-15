@@ -82,6 +82,30 @@ export function weekdaysText(lang: Lang, value: unknown): string {
   return joinList(lang, days.map((d) => DAYS.en[d] + "s"));
 }
 
+/**
+ * An amount in euro cents, the way people write it:
+ *   es: "1.234,50 €"   en: "€1,234.50"
+ * Written out by hand, like the dates, so every runtime agrees.
+ */
+export function money(lang: Lang, cents: unknown): string {
+  const n = typeof cents === "number" ? cents : typeof cents === "string" ? Number(cents) : NaN;
+  if (!Number.isFinite(n)) return "";
+  const abs = Math.round(Math.abs(n));
+  const units = String(Math.floor(abs / 100));
+  const dec = String(abs % 100).padStart(2, "0");
+  const sep = lang === "es" ? "." : ",";
+  // Spanish style leaves 4-digit amounts ungrouped (1234,50 €).
+  const grouped = lang === "es" && units.length <= 4 ? units : units.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  const sign = n < 0 ? "-" : "";
+  return lang === "es" ? `${sign}${grouped},${dec} €` : `${sign}€${grouped}.${dec}`;
+}
+
+/** A list of names in words: "Txuri y Beltza" / "Txuri and Beltza". */
+export function namesList(lang: Lang, value: unknown, max = 5): string {
+  const names = Array.isArray(value) ? value.map((v) => text(v, "", 80)).filter(Boolean).slice(0, max) : [];
+  return joinList(lang, names);
+}
+
 const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
 export function escapeHtml(value: unknown): string {

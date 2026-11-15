@@ -17,10 +17,10 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Edge Function unit tests (form validation, email templates, sender)
+      - name: Edge Function unit tests (form validation, email templates, sender, prices, payment webhooks)
         run: deno test supabase/functions/
       - name: Type-check the Edge Functions
-        run: deno check supabase/functions/submit-booking/index.ts supabase/functions/send-messages/index.ts
+        run: deno check supabase/functions/submit-booking/index.ts supabase/functions/send-messages/index.ts supabase/functions/public-prices/index.ts supabase/functions/payment-webhook/index.ts
       - name: Start Supabase
         run: supabase start -x studio,imgproxy,vector,logflare,supavisor,postgres-meta,edge-runtime
       - name: Database tests (all files in supabase/tests/database)

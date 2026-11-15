@@ -62,3 +62,35 @@ insert into public.booking_requests (payload) values (
     "dog":{"name":"Kuki","breed":null,"age":"2 años","size":"s","sex":"m","neutered":false,"vaccinated":true,"medical":null,"preferences":"Un poco tímido al principio"},
     "dates":{"from":"2026-12-01","to":"2026-12-19","weekdays":[2,4]},"notes":null,"consent":true}'
 );
+
+-- Payments (phase 5). Billing starts 30 days ago in the local data, so the
+-- owner pages, the Payments report and the website's prices have something
+-- to show. Pepper came Mon/Wed/Fri and Rocky Tue/Thu over the last weeks;
+-- Itziar bought a pack before that (it covers Rocky's days) and Mark paid
+-- part of his days by Bizum.
+update public.price_lists set valid_from = public.madrid_today() - 30;
+
+insert into public.bookings (dog_id, start_date, end_date, weekdays, status) values
+  ('c0000000-0000-0000-0000-000000000003', public.madrid_today() - 28, public.madrid_today() - 1, '{1,3,5}', 'confirmed'),
+  ('c0000000-0000-0000-0000-000000000005', public.madrid_today() - 21, public.madrid_today() - 1, '{2,4}', 'confirmed');
+
+insert into public.packs (id, owner_id, days_total, starts_on, expires_on, price_list_id)
+select 'd0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', p.pack_days,
+       public.madrid_today() - 25, (public.madrid_today() - 25 + make_interval(months => p.pack_valid_months))::date - 1, p.id
+from public.price_lists p order by p.valid_from limit 1;
+insert into public.payments (id, owner_id, method, amount_cents, paid_at, recorded_by) values
+  ('e0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', 'card', 32670, now() - interval '25 days', 'a0000000-0000-0000-0000-000000000002'),
+  ('e0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'bizum', 10890, now() - interval '7 days', 'a0000000-0000-0000-0000-000000000002');
+insert into public.charges (owner_id, kind, day, unit_price_cents, vat_rate, pack_id, price_list_id, payment_id)
+select 'b0000000-0000-0000-0000-000000000003', 'pack', public.madrid_today() - 25, p.pack_price_cents, p.vat_rate,
+       'd0000000-0000-0000-0000-000000000001', p.id, 'e0000000-0000-0000-0000-000000000001'
+from public.price_lists p order by p.valid_from limit 1;
+
+select public.charge_days(public.madrid_today() - 30, public.madrid_today() - 1);
+
+-- Mark's Bizum paid his three oldest days.
+update public.charges set payment_id = 'e0000000-0000-0000-0000-000000000002'
+where id in (
+  select id from public.charges
+  where owner_id = 'b0000000-0000-0000-0000-000000000002' and kind = 'day' order by day limit 3
+);

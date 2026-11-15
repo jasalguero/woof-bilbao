@@ -1,11 +1,11 @@
 // Run with: deno test supabase/functions/send-messages/
 import { assert, assertEquals, assertMatch, assertStringIncludes, assertThrows } from "jsr:@std/assert@1";
-import { dateRange, escapeHtml, longDate, weekdaysText } from "./format.ts";
+import { dateRange, escapeHtml, longDate, money, namesList, weekdaysText } from "./format.ts";
 import { LANGS, render, SIGNATURE, TEMPLATE_NAMES, TemplateError } from "./templates.ts";
 
 // Every template the database or the Edge Functions queue today. Adding a
 // new one to the queueing code without a template makes this test fail.
-const QUEUED = ["request_received", "new_request", "request_accepted", "request_declined", "vaccine_reminder"];
+const QUEUED = ["request_received", "new_request", "request_accepted", "request_declined", "vaccine_reminder", "balance_reminder"];
 
 const SAMPLE: Record<string, Record<string, unknown>> = {
   request_received: { owner: "Ane Etxeberria", dog: "Txuri", from: "2026-12-01", to: "2026-12-19", weekdays: [2, 4] },
@@ -13,6 +13,7 @@ const SAMPLE: Record<string, Record<string, unknown>> = {
   request_accepted: { owner: "Ane Etxeberria", dog: "Txuri", from: "2026-12-01", to: "2026-12-19", weekdays: [1, 2, 3, 4, 5], booking_status: "confirmed" },
   request_declined: { owner: "Ane Etxeberria", dog: "Txuri", from: "2026-12-01", to: "2026-12-01", weekdays: [2] },
   vaccine_reminder: { owner: "Ane Etxeberria", dog: "Txuri", next_day: "2026-11-16", checked_until: "2026-11-20", reason: "expiring" },
+  balance_reminder: { owner: "Ane Etxeberria", dogs: ["Txuri", "Beltza"], balance_cents: 7260, unpaid_days: 2, since: "2026-11-16" },
 };
 
 Deno.test("every queued template exists in Spanish and English", () => {
@@ -40,8 +41,8 @@ Deno.test("Spanish and English bodies differ (no untranslated copies)", () => {
   }
 });
 
-Deno.test("no pricing anywhere", () => {
-  for (const name of QUEUED) {
+Deno.test("no pricing anywhere except the balance reminder", () => {
+  for (const name of QUEUED.filter((n) => n !== "balance_reminder")) {
     for (const lang of LANGS) {
       const r = render(name, lang, SAMPLE[name]);
       assert(!/€|eur|precio|price|tarifa/i.test(r.text), `${name}/${lang}`);
@@ -89,8 +90,32 @@ Deno.test("vaccine_reminder explains why, softly", () => {
   assertStringIncludes(unconfirmed.text, "the booking stays as it is");
 });
 
+Deno.test("balance_reminder says the amount, days and dogs, softly", () => {
+  const es = render("balance_reminder", "es", SAMPLE.balance_reminder);
+  assertEquals(es.subject, "Recordatorio de pago de Woof Bilbao (Txuri y Beltza)");
+  assertStringIncludes(es.text, "saldo pendiente de 72,60 € (2 días de guardería, desde el lunes 16 de noviembre de 2026)");
+  assertStringIncludes(es.text, "todo sigue igual para Txuri y Beltza");
+  const en = render("balance_reminder", "en", { ...SAMPLE.balance_reminder, unpaid_days: 1, balance_cents: 123456 });
+  assertEquals(en.subject, "Payment reminder from Woof Bilbao (Txuri and Beltza)");
+  assertStringIncludes(en.text, "outstanding balance of €1,234.56 (1 day of daycare, since Monday 16 November 2026)");
+  const bare = render("balance_reminder", "en", { balance_cents: 500 });
+  assertEquals(bare.subject, "Payment reminder from Woof Bilbao");
+  assertStringIncludes(bare.text, "balance of €5.00.");
+});
+
+Deno.test("money and name lists", () => {
+  assertEquals(money("es", 3630), "36,30 €");
+  assertEquals(money("es", 123456), "1234,56 €");
+  assertEquals(money("es", 12345678), "123.456,78 €");
+  assertEquals(money("en", 12345678), "€123,456.78");
+  assertEquals(money("en", -500), "-€5.00");
+  assertEquals(money("es", "nope"), "");
+  assertEquals(namesList("es", ["A", "B", "C"]), "A, B y C");
+  assertEquals(namesList("en", "x"), "");
+});
+
 Deno.test("HTML escapes everything that comes from data", () => {
-  const evil = { owner: "<b>Eve</b> & co", dog: `"><script>alert(1)</script>`, from: "2026-12-01", to: "2026-12-02", weekdays: [2, 3] };
+  const evil = { owner: "<b>Eve</b> & co", dog: `"><script>alert(1)</script>`, dogs: [`"><script>alert(1)</script>`], from: "2026-12-01", to: "2026-12-02", weekdays: [2, 3] };
   for (const name of QUEUED) {
     for (const lang of LANGS) {
       const r = render(name, lang, evil);

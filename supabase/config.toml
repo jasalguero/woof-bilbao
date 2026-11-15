@@ -444,3 +444,18 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/send-messages/deno.json"
 entrypoint = "./functions/send-messages/index.ts"
+
+# Public, read-only: the website fetches the current prices from it.
+[functions.public-prices]
+enabled = true
+verify_jwt = false
+import_map = "./functions/public-prices/deno.json"
+entrypoint = "./functions/public-prices/index.ts"
+
+# Online payment webhooks (Stripe, Redsys/Bizum): prepared but off until a
+# provider is added. Providers sign their requests; they have no Supabase JWT.
+[functions.payment-webhook]
+enabled = false
+verify_jwt = false
+import_map = "./functions/payment-webhook/deno.json"
+entrypoint = "./functions/payment-webhook/index.ts"

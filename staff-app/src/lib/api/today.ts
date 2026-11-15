@@ -3,7 +3,7 @@ import type { Attendance } from '../types';
 import type { AttendanceRow, TodayDog } from '../logic/today';
 import { must } from './util';
 
-const DOG = 'id, name, size, photo_path, medical_notes, vaccines_up_to_date, vaccines_checked_until, active, owner:owners(full_name, phone)';
+const DOG = 'id, name, size, photo_path, medical_notes, vaccines_up_to_date, vaccines_checked_until, active, owner:owners(id, full_name, phone)';
 
 export interface TodayData {
   booked: { booking_id: string; dog: TodayDog }[];

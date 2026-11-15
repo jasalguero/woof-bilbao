@@ -17,6 +17,13 @@ describe('classifyError', () => {
     expect(classifyError(new TypeError('Failed to fetch')).kind).toBe('network');
     expect(classifyError('boom')).toEqual({ kind: 'other', message: 'boom' });
   });
+  it('recognises the payment errors', () => {
+    expect(classifyError({ code: '22023', hint: 'charge_not_open', message: 'a charge is not open for this owner' })).toEqual({
+      kind: 'payment',
+      reason: 'charge_not_open'
+    });
+    expect(classifyError({ code: '22023', hint: 'recently_reminded' })).toEqual({ kind: 'payment', reason: 'recently_reminded' });
+  });
   it('reads the walk-in capacity error', () => {
     expect(classifyError({ code: 'P0001', hint: 'over_capacity', message: 'no room today: 12/12' })).toEqual({
       kind: 'over_capacity', count: 12, max: 12
