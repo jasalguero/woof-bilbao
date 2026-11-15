@@ -50,8 +50,9 @@ export async function listCharges(ownerId: string, limit = 300): Promise<ChargeW
 
 /**
  * What each of the owner's live charges still owes (charge id -> cents).
- * The money in pays the oldest charges first, so a part payment leaves a
- * charge part paid; charges missing from the map owe nothing.
+ * A payment pays the charges ticked for it; the rest of the money pays the
+ * oldest first, so a part payment leaves a charge part paid. Charges
+ * missing from the map owe nothing.
  */
 export async function getOwing(ownerId: string): Promise<Map<string, number>> {
   const rows = must(await supabase.rpc('charge_allocation', { p_owner_id: ownerId }));
@@ -139,7 +140,8 @@ export async function recordRefund(args: {
   ownerId: string;
   amountCents: number;
   method: PaymentMethod;
-  refundOf?: string | null;
+  /** The payment given back (required: a refund is never more than it). */
+  refundOf: string;
   note?: string;
 }): Promise<void> {
   must(
@@ -148,7 +150,7 @@ export async function recordRefund(args: {
       kind: 'refund',
       method: args.method,
       amount_cents: args.amountCents,
-      refund_of: args.refundOf ?? null,
+      refund_of: args.refundOf,
       note: args.note || null
     })
   );

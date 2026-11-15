@@ -25,7 +25,7 @@ Needs Docker and Node.js (for `npx`).
 ```sh
 npx supabase start            # starts Postgres, Auth, API, Storage, Edge Runtime
 npx supabase db reset         # applies migrations + seed.sql
-npx supabase test db          # 275 database tests
+npx supabase test db          # 287 database tests
 npx deno test supabase/functions/                  # form validation, email templates, sender, prices, webhooks
 npx supabase functions serve --no-verify-jwt       # serves the functions on :54321
 ```
@@ -218,18 +218,23 @@ always integer euro **cents**; the currency is EUR.
   `provider` (`manual` for staff-recorded ones), `external_id` (the
   provider's id; unique per provider), `status` (`pending`, `succeeded`,
   `failed`, `cancelled`; manual ones are always `succeeded`), `metadata`
-  (jsonb) and `refund_of`. `recorded_by` is the staff member. A refund with
-  `refund_of` must be of a succeeded payment of the same owner and never
-  more than what is left of it (hint `bad_refund`).
+  (jsonb) and `refund_of`. `recorded_by` is the staff member. A refund must
+  name the payment it gives back (`refund_of`), a succeeded payment of the
+  same owner, and is never more than what is left of it. A payment with
+  refunds cannot be edited below them, moved to another owner, stop being
+  succeeded, or be deleted (hint `bad_refund`).
 - `absences`: an owner told us a booked dog won't come on a day, and when
   (`notified_at`, default now). Staff record a notice as it comes in; only
   admins may enter an earlier time (hint `backdate_admin_only`). It does not
   free the place in the capacity count.
-- `charge_allocation(owner?, until?)`: what each live charge still owes. The
-  money in (payments minus refunds, plus credit from negative corrections)
-  pays the owner's charges **oldest first**, so a part payment leaves the
-  oldest charge part paid, never paid. With `until`, the state at the end of
-  that day (charges and money in up to then).
+- `charge_allocation(owner?, until?)`: what each live charge still owes. A
+  payment first pays the charges it was recorded for (the ones staff ticked,
+  `payment_id`), up to its amount; the rest of the money in (minus refunds,
+  plus credit from negative corrections) pays the remaining amounts **oldest
+  first**. If refunds leave that negative, the newest paid amounts are owed
+  again. A part payment never makes a charge paid, and the total owed always
+  equals a positive balance. With `until`, the state at the end of that day
+  (charges and money in up to then).
 - `owner_balances` (view): per owner, `charged_cents`, `paid_cents`
   (payments minus refunds, succeeded only), `balance_cents` (positive = owes,
   negative = credit), and from `charge_allocation`, `unpaid_days` (part paid
@@ -279,6 +284,13 @@ day reopens) `charge_days` charges the day again.
 Single days can be paid on the day or settled at the end of the month; packs
 are paid upfront. Unpaid days never block a check-in.
 
+Known limitation: days are charged from bookings as they are when
+`charge_days` runs. Staff can still edit a booking (set it back to pending,
+shorten it) before its days are charged, and changing a booking's dates or
+weekdays later does not void days already charged; an admin fixes those by
+hand (void, correction). A price list already in force can only be fixed
+with SQL.
+
 ### Who can do what
 
 | | Staff | Admins |
@@ -317,7 +329,8 @@ or for the cron job (no user); non-staff logins are refused.
   the last day of a shorter month (31 Aug + 6 months = 28 Feb). Creates the
   pack, its charge and its payment, then moves the owner's unpaid, uncovered
   days from the start date onto it. Hints `no_prices` before billing starts,
-  `override_admin_only` for a price per day under half the list's.
+  `override_admin_only` (staff) for a price per day under half the list's or
+  an expiry later than the list's validity.
 - `queue_balance_reminder(owner)`: queues a `balance_reminder` email (amount
   owed, unpaid days, the owner's dogs) in the owner's language through the
   normal outbox, at most one every 3 days (hints `nothing_owed`, `no_email`,

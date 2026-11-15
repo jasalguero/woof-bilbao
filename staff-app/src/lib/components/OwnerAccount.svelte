@@ -22,7 +22,7 @@
 
   let balance = $state<OwnerBalance | null>(null);
   let charges = $state<ChargeWithDog[]>([]);
-  /** What each charge still owes (money pays the oldest first). */
+  /** What each charge still owes (a payment pays its ticked items, the rest goes oldest first). */
   let owing = $state<Map<string, number>>(new Map());
   let payments = $state<PaymentWithStaff[]>([]);
   let packs = $state<PackBalance[]>([]);
@@ -92,6 +92,12 @@
     return c.description ? `${kind} · ${c.description}` : kind;
   }
 
+  // A refund gives back (part of) one payment, never more than was paid.
+  function openRefund() {
+    const first = payments.find((p) => p.kind === 'payment' && p.status === 'succeeded');
+    refund = { amount: '', method: first?.method ?? 'cash', note: '', refundOf: first?.id ?? null };
+  }
+
   const refundAmount = $derived(refund ? parseEuros(refund.amount) : null);
   const correctionAmount = $derived(correction ? parseEuros(correction.amount, true) : null);
   const editAmount = $derived(editing ? parseEuros(editing.amount) : null);
@@ -114,7 +120,7 @@
       <button class="quiet" onclick={() => (reminding = true)} disabled={busy || !owner.email}>{t('account.sendReminder')}</button>
     {/if}
     {#if isAdmin()}
-      <button class="quiet" onclick={() => (refund = { amount: '', method: 'cash', note: '', refundOf: null })} disabled={busy}>{t('account.refund')}</button>
+      <button class="quiet" onclick={() => openRefund()} disabled={busy}>{t('account.refund')}</button>
       <button class="quiet" onclick={() => (correction = { amount: '', reason: '' })} disabled={busy}>{t('account.correction')}</button>
     {/if}
   </div>
@@ -249,10 +255,9 @@
           <select bind:value={r.method}>{#each PAYMENT_METHODS as m (m)}<option value={m}>{t(`method.${m}` as MessageKey)}</option>{/each}</select>
         </label>
       </div>
-      <label class="field"><span>{t('account.payments')}</span>
-        <select bind:value={r.refundOf}>
-          <option value={null}>–</option>
-          {#each payments.filter((p) => p.kind === 'payment') as p (p.id)}
+      <label class="field"><span>{t('refund.of')}</span>
+        <select bind:value={r.refundOf} required>
+          {#each payments.filter((p) => p.kind === 'payment' && p.status === 'succeeded') as p (p.id)}
             <option value={p.id}>{fmtDate(p.paid_at)} · {t(`method.${p.method}` as MessageKey)} · {formatMoney(lang, p.amount_cents)}</option>
           {/each}
         </select>
@@ -261,8 +266,8 @@
     </div>
     {#snippet actions()}
       <button class="quiet" onclick={() => (refund = null)} disabled={busy}>{t('common.cancel')}</button>
-      <button class="primary" disabled={busy || refundAmount === null || refundAmount <= 0}
-        onclick={() => act(() => recordRefund({ ownerId: owner.id, amountCents: refundAmount!, method: r.method, refundOf: r.refundOf, note: r.note.trim() }), t('refund.done'))}>
+      <button class="primary" disabled={busy || refundAmount === null || refundAmount <= 0 || !r.refundOf}
+        onclick={() => act(() => recordRefund({ ownerId: owner.id, amountCents: refundAmount!, method: r.method, refundOf: r.refundOf!, note: r.note.trim() }), t('refund.done'))}>
         {t('account.refund')}
       </button>
     {/snippet}

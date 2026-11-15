@@ -135,8 +135,9 @@ The app opens on **Today** after signing in.
   details, language, notes, their dogs, their **account** and the messages
   queued to them. The account shows the balance (what they owe, or their
   credit), unpaid days, packs (days left, expiry), every charge and payment.
-  Money pays the oldest charges first, so a charge shows as paid, part paid
-  (with what is left) or unpaid from the balance.
+  A payment pays the items ticked for it; money without ticked items pays
+  the oldest items first. Each charge shows as paid, part paid (with what is
+  left) or unpaid.
   Opening it first charges any booked or attended days not charged yet, so
   today's day can be paid on the spot. Any staff member can:
   - **Record payment** (cash, card terminal, Bizum or bank transfer): tick the
@@ -151,7 +152,7 @@ The app opens on **Today** after signing in.
     move onto the new pack;
   - **Send reminder**: queues a polite payment-reminder email in the owner's
     language (at most one every 3 days). Owing money never blocks a check-in.
-  Admins also get **Refund** (unused pack days are never refunded; they stay
+  Admins also get **Refund** of a chosen payment, never more than it (unused pack days are never refunded; they stay
   as credit), **Correction** (a manual plus or minus on the account), and can
   edit or delete payments and void charges. Row-level security enforces this
   in the database, not just in the app.

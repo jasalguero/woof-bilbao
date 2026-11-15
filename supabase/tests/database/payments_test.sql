@@ -5,7 +5,7 @@
 -- Run with: npx supabase test db
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(124);
+select plan(136);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'admin@test.local'),
@@ -159,6 +159,12 @@ select results_eq(
   $$values ('2030-01-07'::date, 3630, true), ('2030-01-08'::date, 3025, true), ('2030-01-11'::date, 4235, false)$$,
   'the selected charges are settled, one at the price set on the fly');
 select is((select balance_cents from public.owner_balances where full_name = 'Ane'), 7865, 'the balance goes down');
+select results_eq(
+  $$select g.name, a.day, a.owing_cents from public.charge_allocation('10000000-0000-0000-0000-000000000001') a
+    join public.charges c on c.id = a.charge_id join public.dogs g on g.id = c.dog_id
+    where a.day < '2030-01-11' order by a.day, g.name$$,
+  $$values ('Beltza', '2030-01-07'::date, 3630), ('Txuri', '2030-01-07'::date, 0), ('Txuri', '2030-01-08'::date, 0)$$,
+  'a payment pays the items it was recorded for, not another dog''s older day');
 
 -- Mark pays EUR 50 by Bizum without picking days: the oldest charge that fits is settled.
 select lives_ok(
@@ -217,7 +223,8 @@ select lives_ok(
   $$insert into public.payments (owner_id, method, amount_cents, paid_at) values ('10000000-0000-0000-0000-000000000003', 'card', 100, '2030-01-11 12:00+01')$$,
   'staff can insert a manual payment directly');
 select throws_ok(
-  $$insert into public.payments (owner_id, kind, method, amount_cents) values ('10000000-0000-0000-0000-000000000001', 'refund', 'cash', 100)$$,
+  $$insert into public.payments (owner_id, kind, method, amount_cents, refund_of)
+    values ('10000000-0000-0000-0000-000000000001', 'refund', 'cash', 100, (select id from public.payments where note = 'paid at the door'))$$,
   '42501', null, 'staff cannot record refunds');
 select throws_ok(
   $$insert into public.payments (owner_id, method, amount_cents, recorded_by) values ('10000000-0000-0000-0000-000000000003', 'cash', 100, '00000000-0000-0000-0000-00000000000a')$$,
@@ -293,6 +300,9 @@ select throws_like(
 select throws_like(
   $$select public.sell_pack('10000000-0000-0000-0000-000000000001', 'cash', p_days => 30)$$,
   '%only admins%', 'nor 30 days for the price of 10');
+select throws_like(
+  $$select public.sell_pack('10000000-0000-0000-0000-000000000001', 'cash', p_expires_on => '2031-01-31')$$,
+  '%only admins%', 'nor valid for longer than the price list says');
 update public.packs set expires_on = '2040-01-01';
 select is((select count(*)::int from public.packs where expires_on = '2040-01-01'), 0, 'staff cannot change packs');
 reset role;
@@ -336,6 +346,17 @@ select results_eq(
   'an absence never voids a walk-in or a paid day');
 select is(public.charge_days('2030-01-01', '2030-01-31'), 0, 'a voided day is not charged again');
 reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}';
+select throws_like(
+  $$update public.absences set dog_id = '20000000-0000-0000-0000-000000000002'
+    where dog_id = '20000000-0000-0000-0000-000000000001' and day = '2030-01-08'$$,
+  '%only admins%', 'staff cannot move an old notice to another dog');
+select throws_like(
+  $$update public.absences set day = '2030-01-07'
+    where dog_id = '20000000-0000-0000-0000-000000000001' and day = '2030-01-08'$$,
+  '%only admins%', 'or to another day');
+reset role;
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}';
@@ -362,6 +383,15 @@ select throws_like(
   $$insert into public.payments (owner_id, kind, method, amount_cents, refund_of)
     values ('10000000-0000-0000-0000-000000000001', 'refund', 'cash', 100, (select id from public.payments where method = 'bizum'))$$,
   '%same owner%', 'nor of another owner''s payment');
+select throws_ok(
+  $$insert into public.payments (owner_id, kind, method, amount_cents) values ('10000000-0000-0000-0000-000000000001', 'refund', 'cash', 100)$$,
+  '22023', null, 'a refund always names the payment it gives back');
+select throws_like(
+  $$update public.payments set amount_cents = 500 where note = 'paid at the door'$$,
+  '%has refunds%', 'a payment cannot be edited below what was refunded of it');
+select throws_ok(
+  $$delete from public.payments where note = 'paid at the door'$$,
+  '23503', null, 'nor deleted while it has refunds');
 select lives_ok(
   $$insert into public.charges (owner_id, kind, day, unit_price_cents, vat_rate, description)
     values ('10000000-0000-0000-0000-000000000002', 'adjustment', '2030-01-11', -613, 0, 'rounding')$$,
@@ -437,8 +467,8 @@ select is(
 select is(
   public.monthly_report('2030-01-20') -> 'owing',
   '[{"owner_id": "10000000-0000-0000-0000-000000000002", "full_name": "Mark", "email": "mark@test.local", "phone": null,
-     "balance_cents": 7547, "unpaid_days": 0, "oldest_unpaid_day": "2030-01-11"}]'::jsonb,
-  'who owes what at the end of the month (Mark''s days are paid, oldest first; part of his pack is not)');
+     "balance_cents": 7547, "unpaid_days": 1, "oldest_unpaid_day": "2030-01-08"}]'::jsonb,
+  'who owes what at the end of the month');
 select is(
   (select jsonb_agg(c -> 'kind' order by c ->> 'kind') from jsonb_array_elements(public.monthly_report('2030-01-01') -> 'charges') c),
   '["adjustment", "day", "pack"]'::jsonb, 'charges by kind');
@@ -560,6 +590,18 @@ select is(public.charge_days('2030-01-01', '2030-01-31', '10000000-0000-0000-000
           'an admin corrects it to a late cancellation: the day is charged again');
 reset role;
 
+-- An absence removed after it voided a day: the day is charged again.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}';
+delete from public.absences where dog_id = '20000000-0000-0000-0000-000000000004' and day = '2030-01-11';
+select is(public.charge_days('2030-01-11', '2030-01-11', '10000000-0000-0000-0000-000000000002'), 1,
+          'removing an absence that voided a day charges it again');
+select results_eq(
+  $$select count(*)::int, bool_and(pack_id is not null) from public.charges
+    where dog_id = '20000000-0000-0000-0000-000000000004' and day = '2030-01-11' and voided_at is null$$,
+  $$values (1, true)$$, 'once, from Mark''s pack');
+reset role;
+
 -- A part payment leaves the oldest day part paid, not paid.
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}';
@@ -577,6 +619,16 @@ select results_eq(
   $$select balance_cents, unpaid_days, oldest_unpaid_day from public.owner_balances where full_name = 'Iker'$$,
   $$values (7983, 3, '2030-01-09'::date)$$,
   'a part-paid day still counts as unpaid');
+select lives_ok(
+  $$select public.record_payment('10000000-0000-0000-0000-000000000004', 2118, 'card',
+      array(select id from public.charges where dog_id = '20000000-0000-0000-0000-000000000006' and day = '2030-01-11' and voided_at is null),
+      null, '2030-01-11 18:10+01')$$,
+  'Iker pays Luna''s Friday, a newer day, while Kuki''s Wednesday is part paid');
+select results_eq(
+  $$select a.day, a.total_cents, a.owing_cents from public.charge_allocation('10000000-0000-0000-0000-000000000004') a
+    order by a.day, a.total_cents desc$$,
+  $$values ('2030-01-09'::date, 3630, 1630), ('2030-01-11'::date, 4235, 4235), ('2030-01-11'::date, 2118, 0)$$,
+  'the ticked day is paid; the older day still owes what it did');
 select throws_like(
   $$select public.record_payment('10000000-0000-0000-0000-000000000004', 1000, 'cash',
       array(select id from public.charges where dog_id = '20000000-0000-0000-0000-000000000005' and day = '2030-01-09' and voided_at is null))$$,
@@ -588,7 +640,7 @@ select lives_ok(
 reset role;
 -- The rest is paid in February.
 insert into public.payments (owner_id, method, amount_cents, paid_at)
-values ('10000000-0000-0000-0000-000000000004', 'transfer', 6353, '2030-02-03 10:00+01');
+values ('10000000-0000-0000-0000-000000000004', 'transfer', 4235, '2030-02-03 10:00+01');
 select results_eq(
   $$select balance_cents, unpaid_days, oldest_unpaid_day from public.owner_balances where full_name = 'Iker'$$,
   $$values (0, 0, null::date)$$,
@@ -598,9 +650,15 @@ set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a","r
 select is(
   (select w from jsonb_array_elements(public.monthly_report('2030-01-01') -> 'owing') w where w ->> 'full_name' = 'Iker'),
   '{"owner_id": "10000000-0000-0000-0000-000000000004", "full_name": "Iker", "email": "iker@test.local", "phone": null,
-    "balance_cents": 6353, "unpaid_days": 2, "oldest_unpaid_day": "2030-01-11"}'::jsonb,
+    "balance_cents": 4235, "unpaid_days": 1, "oldest_unpaid_day": "2030-01-11"}'::jsonb,
   'the report shows what was owed at the end of the month, not now');
 reset role;
+
+select is(
+  (select count(*)::int from public.owner_balances b
+   where b.owner_id::text like '10000000-%'
+     and greatest(b.balance_cents, 0) <> coalesce((select sum(a.owing_cents) from public.charge_allocation(b.owner_id) a), 0)),
+  0, 'what each owner owes item by item adds up to their balance');
 
 -- Rounding: halves go away from zero, like the staff app's lineTotals().
 insert into public.charges (owner_id, kind, day, unit_price_cents, discount_pct, vat_rate, description) values

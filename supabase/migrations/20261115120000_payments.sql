@@ -22,10 +22,10 @@
 --                   through record_provider_payment() from a webhook.
 --   * balance       sum(charges) - sum(succeeded payments) + sum(succeeded
 --                   refunds). Positive = the owner owes us; negative = credit.
---                   Which items are still unpaid comes from the balance too:
---                   the money in pays the oldest charges first
---                   (charge_allocation). A charge's payment_id only says
---                   which payment it was recorded with.
+--                   Which items are still unpaid (charge_allocation): a
+--                   payment pays the charges recorded with it (payment_id)
+--                   up to its amount; the rest of the money pays the oldest
+--                   charges first. A part payment never makes a charge paid.
 --
 -- Roles: every staff member can see all of it, record payments and sell
 -- packs (through the functions below, which also let them override the price
@@ -231,7 +231,9 @@ create table public.payments (
   amount_cents integer not null check (amount_cents > 0 and amount_cents <= 10000000),
   currency     text not null default 'EUR' check (currency = 'EUR'),
   paid_at      timestamptz not null default now(),
-  refund_of    uuid references public.payments (id) on delete set null,
+  -- A refund gives back (part of) this payment; a payment with refunds
+  -- cannot be deleted.
+  refund_of    uuid references public.payments (id) on delete restrict,
   note         text check (length(note) <= 500),
   -- Raw provider details (webhook event ids, card brand, ...). Never secrets.
   metadata     jsonb not null default '{}',
@@ -240,7 +242,7 @@ create table public.payments (
   updated_at   timestamptz not null default now(),
   constraint payments_external_key unique (provider, external_id),
   constraint payments_external_check check (provider = 'manual' or external_id is not null),
-  constraint payments_refund_check check (kind = 'refund' or refund_of is null)
+  constraint payments_refund_check check ((kind = 'refund') = (refund_of is not null))
 );
 create index payments_owner_idx on public.payments (owner_id, paid_at desc);
 create index payments_paid_at_idx on public.payments (paid_at);
@@ -345,45 +347,71 @@ left join lateral (
 ) s on true;
 
 -- charge_allocation: what is still owed on each live charge with a positive
--- total. The money in (succeeded payments minus refunds, plus any credit
--- from negative corrections) pays the owner's charges oldest first, so a
--- part payment leaves a charge part paid, never "paid" (oldest = by day,
--- then created_at; on a tie days before packs). With p_until, only
+-- total, so a part payment leaves a charge part paid, never "paid":
+--   1. a payment pays the charges recorded with it (charges.payment_id), up
+--      to its amount;
+--   2. the rest of the money in (what payments did not use on their own
+--      charges, minus refunds, plus credit from negative corrections) pays
+--      the remaining amounts oldest first (by day, created_at, days before
+--      packs, then id);
+--   3. if refunds leave that negative, the newest paid amounts are owed again.
+-- The total owed always equals a positive balance. With p_until, only
 -- charges up to that day and money in up to that day (Bilbao time): the
 -- state at the end of that day (the monthly report).
 create function public.charge_allocation(p_owner_id uuid default null, p_until date default null)
 returns table (charge_id uuid, owner_id uuid, kind public.charge_kind, day date, total_cents integer, owing_cents integer)
 language sql stable security invoker set search_path = '' as $$
-  with ch as (
-    select c.id, c.owner_id, c.kind, c.day, c.total_cents, c.created_at
+  with pay as (
+    select y.id, y.owner_id, y.kind, y.amount_cents
+    from public.payments y
+    where y.status = 'succeeded'
+      and (p_owner_id is null or y.owner_id = p_owner_id)
+      and (p_until is null or (y.paid_at at time zone 'Europe/Madrid')::date <= p_until)
+  ),
+  ch as (
+    select c.id, c.owner_id, c.kind, c.day, c.total_cents, c.created_at,
+           -- The payment it was recorded with, if that counts here.
+           (select p.id from pay p where p.id = c.payment_id and p.kind = 'payment') as payment_id
     from public.charges c
     where c.voided_at is null
       and (p_owner_id is null or c.owner_id = p_owner_id)
       and (p_until is null or c.day <= p_until)
   ),
-  money_in as (
+  linked as (
+    select ch.*,
+           case when ch.payment_id is null then 0
+                else least(ch.total_cents, greatest(0, p.amount_cents - (
+                       sum(ch.total_cents) over (partition by ch.payment_id order by ch.day, ch.created_at, ch.kind, ch.id)
+                       - ch.total_cents)))
+           end as paid_linked
+    from ch
+    left join pay p on p.id = ch.payment_id
+    where ch.total_cents > 0
+  ),
+  pool as (
     select m.owner_id, sum(m.cents) as cents
     from (
-      select y.owner_id, case when y.kind = 'refund' then -y.amount_cents else y.amount_cents end as cents
-      from public.payments y
-      where y.status = 'succeeded'
-        and (p_owner_id is null or y.owner_id = p_owner_id)
-        and (p_until is null or (y.paid_at at time zone 'Europe/Madrid')::date <= p_until)
+      select p.owner_id, case when p.kind = 'refund' then -p.amount_cents else p.amount_cents end as cents from pay p
+      union all
+      select l.owner_id, -l.paid_linked from linked l
       union all
       select ch.owner_id, -ch.total_cents from ch where ch.total_cents < 0
     ) m
     group by m.owner_id
   ),
   running as (
-    select ch.*,
-           sum(ch.total_cents) over (partition by ch.owner_id order by ch.day, ch.created_at, ch.kind, ch.id) as upto
-    from ch
-    where ch.total_cents > 0
+    select l.*,
+           sum(l.total_cents - l.paid_linked) over (partition by l.owner_id order by l.day, l.created_at, l.kind, l.id) as rest_upto,
+           sum(l.paid_linked) over (partition by l.owner_id order by l.day desc, l.created_at desc, l.kind desc, l.id desc) as linked_from_newest
+    from linked l
   )
   select r.id, r.owner_id, r.kind, r.day, r.total_cents,
-         least(r.total_cents, greatest(0, r.upto - coalesce(mi.cents, 0)))::integer
+         (least(r.total_cents - r.paid_linked,
+                greatest(0, r.rest_upto - greatest(coalesce(po.cents, 0), 0)))
+          + least(r.paid_linked,
+                  greatest(0, greatest(-coalesce(po.cents, 0), 0) - (r.linked_from_newest - r.paid_linked))))::integer
   from running r
-  left join money_in mi on mi.owner_id = r.owner_id;
+  left join pool po on po.owner_id = r.owner_id;
 $$;
 
 create view public.owner_balances with (security_invoker = true) as
@@ -828,12 +856,14 @@ begin
   if v_days < 1 or v_days > 100 then
     raise exception 'a pack has 1 to 100 days' using errcode = '22023', hint = 'bad_input';
   end if;
-  -- Staff may sell at up to half off the list price per day; less needs an admin.
+  -- Staff may sell at up to half off the list price per day, valid at most
+  -- the list's months; anything more generous needs an admin.
   if not public.is_admin()
      and (coalesce(p_price_cents, v_price.pack_price_cents) <= 0
           or 2 * coalesce(p_price_cents, v_price.pack_price_cents)::bigint * v_price.pack_days
-             < v_price.pack_price_cents::bigint * v_days) then
-    raise exception 'only admins can sell a pack free or at less than half price'
+             < v_price.pack_price_cents::bigint * v_days
+          or p_expires_on > public.pack_expiry(v_start, v_price.pack_valid_months)) then
+    raise exception 'only admins can sell a pack free, at less than half price or valid for longer'
       using errcode = '22023', hint = 'override_admin_only';
   end if;
   -- The same lock as charge_days: a day being charged now and this pack
@@ -939,15 +969,17 @@ begin
   return v_payment;
 end $$;
 
--- Refunds give back part or all of one payment of the same owner (or, with
--- no refund_of, credit on the account): never more than was paid.
+-- Refunds give back part or all of one payment of the same owner (refund_of
+-- is required): never more than what is left of it. A payment cannot be
+-- edited below what was refunded of it, moved to another owner, or stop
+-- being 'succeeded' while it has refunds.
 create function public.check_refund() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   v_of       public.payments;
   v_refunded bigint;
 begin
-  if new.kind = 'refund' and new.refund_of is not null then
+  if new.kind = 'refund' then
     select * into v_of from public.payments where id = new.refund_of for update;
     if v_of.owner_id is distinct from new.owner_id or v_of.kind <> 'payment' or v_of.status <> 'succeeded' then
       raise exception 'a refund must be of a payment by the same owner' using errcode = '22023', hint = 'bad_refund';
@@ -956,6 +988,12 @@ begin
     where refund_of = new.refund_of and kind = 'refund' and status = 'succeeded' and id <> new.id;
     if v_refunded + new.amount_cents > v_of.amount_cents then
       raise exception 'a refund cannot be more than what is left of the payment' using errcode = '22023', hint = 'bad_refund';
+    end if;
+  elsif tg_op = 'UPDATE' then
+    select coalesce(sum(amount_cents), 0) into v_refunded from public.payments
+    where refund_of = new.id and kind = 'refund' and status = 'succeeded';
+    if v_refunded > 0 and (new.amount_cents < v_refunded or new.status <> 'succeeded' or new.owner_id <> old.owner_id) then
+      raise exception 'this payment has refunds of %', v_refunded using errcode = '22023', hint = 'bad_refund';
     end if;
   end if;
   return new;
@@ -1020,7 +1058,9 @@ end $$;
 
 -- The sender fails out-of-date mail instead of sending it late; a balance
 -- reminder is stale after 3 days (staff can send a fresh one). Otherwise
--- unchanged from 20261113090100_daily_operations.sql.
+-- unchanged from 20261113090100_daily_operations.sql. This redefines the
+-- whole function: a later change to claim_messages must start from this
+-- version, not that one.
 create or replace function public.claim_messages(p_channel public.message_channel default 'email', p_limit integer default 20)
 returns setof public.messages
 language plpgsql security invoker set search_path = '' as $$
