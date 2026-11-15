@@ -48,6 +48,16 @@ export async function listCharges(ownerId: string, limit = 300): Promise<ChargeW
   ) as ChargeWithDog[];
 }
 
+/**
+ * What each of the owner's live charges still owes (charge id -> cents).
+ * The money in pays the oldest charges first, so a part payment leaves a
+ * charge part paid; charges missing from the map owe nothing.
+ */
+export async function getOwing(ownerId: string): Promise<Map<string, number>> {
+  const rows = must(await supabase.rpc('charge_allocation', { p_owner_id: ownerId }));
+  return new Map(rows.map((r) => [r.charge_id, r.owing_cents]));
+}
+
 export async function listPayments(ownerId: string): Promise<PaymentWithStaff[]> {
   return must(
     await supabase
@@ -262,8 +272,12 @@ export async function listAbsencesOn(day: string): Promise<Absence[]> {
   return must(await supabase.from('absences').select('*').eq('day', day));
 }
 
-export async function addAbsence(dogId: string, day: string, notifiedAt: string, note: string | null): Promise<void> {
-  must(await supabase.from('absences').insert({ dog_id: dogId, day, notified_at: notifiedAt, note }));
+/**
+ * Records an absence. Staff leave notifiedAt out: the notice is "now". Only
+ * admins may enter an earlier time (a call taken yesterday).
+ */
+export async function addAbsence(dogId: string, day: string, note: string | null, notifiedAt?: string): Promise<void> {
+  must(await supabase.from('absences').insert({ dog_id: dogId, day, note, ...(notifiedAt ? { notified_at: notifiedAt } : {}) }));
 }
 
 export async function removeAbsence(id: string): Promise<void> {

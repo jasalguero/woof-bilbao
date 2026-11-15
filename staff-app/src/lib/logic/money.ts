@@ -24,8 +24,12 @@ export interface LineTotals {
  * `charges`: net = round(unit * (100 - discount) / 100), vat = round(net * rate / 100).
  */
 export function lineTotals(unitCents: number, discountPct = 0, vatRate = 0): LineTotals {
-  const net = roundHalfAway((unitCents * (100 - discountPct)) / 100);
-  const vat = roundHalfAway((net * vatRate) / 100);
+  // Percentages have two decimals in the database; work in hundredths of a
+  // percent so the halves stay exact (12.35 % in floating point is not).
+  const keep = 10_000 - Math.round(discountPct * 100);
+  const rate = Math.round(vatRate * 100);
+  const net = roundHalfAway((unitCents * keep) / 10_000);
+  const vat = roundHalfAway((net * rate) / 10_000);
   return { net, vat, total: net + vat };
 }
 
@@ -71,13 +75,18 @@ export function parsePct(text: string): number | null {
   return n >= 0 && n <= 100 ? n : null;
 }
 
-/** The day a pack expires, like sell_pack(): start + N months - 1 day. */
+/**
+ * The last day of a pack, like pack_expiry() in the database: the day before
+ * the same date N months on (11 Jan + 6 -> 10 Jul), or the last day of that
+ * month when it is too short for the date (31 Aug + 6 -> 28 Feb).
+ */
 export function packExpiry(start: IsoDate, months: number): IsoDate {
   const [y, m, d] = start.split('-').map(Number);
-  // Postgres date + interval 'N months' clamps to the end of a shorter month.
   const target = new Date(Date.UTC(y, m - 1 + months, 1));
   const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
-  const end = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(d, last)) - 86_400_000;
+  const end = d > last
+    ? Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), last)
+    : Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), d) - 86_400_000;
   return new Date(end).toISOString().slice(0, 10);
 }
 

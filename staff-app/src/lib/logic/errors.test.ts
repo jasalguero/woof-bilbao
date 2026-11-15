@@ -23,6 +23,9 @@ describe('classifyError', () => {
       reason: 'charge_not_open'
     });
     expect(classifyError({ code: '22023', hint: 'recently_reminded' })).toEqual({ kind: 'payment', reason: 'recently_reminded' });
+    for (const hint of ['amount_below_selected', 'override_admin_only', 'backdate_admin_only', 'prices_in_force', 'bad_refund']) {
+      expect(classifyError({ code: '22023', hint })).toEqual({ kind: 'payment', reason: hint });
+    }
   });
   it('reads the walk-in capacity error', () => {
     expect(classifyError({ code: 'P0001', hint: 'over_capacity', message: 'no room today: 12/12' })).toEqual({

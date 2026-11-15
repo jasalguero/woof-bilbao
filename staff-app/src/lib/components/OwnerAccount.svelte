@@ -6,7 +6,7 @@
   import PaymentDialog from './PaymentDialog.svelte';
   import PackDialog from './PackDialog.svelte';
   import {
-    addCorrection, chargeOwnerDays, deletePayment, getBalance, listCharges, listPacks, listPayments, pricesOn,
+    addCorrection, chargeOwnerDays, deletePayment, getBalance, getOwing, listCharges, listPacks, listPayments, pricesOn,
     recordRefund, sendBalanceReminder, updatePayment, voidCharge, PAYMENT_METHODS,
     type ChargeWithDog, type PaymentWithStaff
   } from '#lib/api/payments.ts';
@@ -22,6 +22,8 @@
 
   let balance = $state<OwnerBalance | null>(null);
   let charges = $state<ChargeWithDog[]>([]);
+  /** What each charge still owes (money pays the oldest first). */
+  let owing = $state<Map<string, number>>(new Map());
   let payments = $state<PaymentWithStaff[]>([]);
   let packs = $state<PackBalance[]>([]);
   let prices = $state<PriceList | null>(null);
@@ -41,7 +43,7 @@
   const today = todayIso();
   const owes = $derived(balance?.balance_cents ?? 0);
   const open = $derived(
-    charges.filter((c) => !c.voided_at && !c.payment_id && (c.total_cents ?? 0) > 0)
+    charges.filter((c) => !c.voided_at && (owing.get(c.id) ?? 0) > 0)
       .sort((a, b) => a.day.localeCompare(b.day) || a.created_at.localeCompare(b.created_at))
   );
   const shownCharges = $derived(showAll ? charges : charges.slice(0, 15));
@@ -53,11 +55,11 @@
     try {
       // Bring today's (and any missed) days onto the account first.
       if (charge) await chargeOwnerDays(owner.id);
-      const [b, c, p, k, pr] = await Promise.all([
-        getBalance(owner.id), listCharges(owner.id), listPayments(owner.id), listPacks(owner.id), pricesOn()
+      const [b, c, o, p, k, pr] = await Promise.all([
+        getBalance(owner.id), listCharges(owner.id), getOwing(owner.id), listPayments(owner.id), listPacks(owner.id), pricesOn()
       ]);
       if (mine !== token) return;
-      [balance, charges, payments, packs, prices] = [b, c, p, k, pr];
+      [balance, charges, owing, payments, packs, prices] = [b, c, o, p, k, pr];
     } catch (e) {
       if (mine === token) fail(e);
     }
@@ -195,8 +197,12 @@
             <td>
               {#if c.voided_at}<span class="badge cancelled" title={c.void_reason ?? ''}>{t('account.voided')}</span>
               {:else if c.kind === 'day' && c.pack_id}<span class="badge confirmed">{t('account.coveredByPack')}</span>
-              {:else if c.payment_id}<span class="badge confirmed">{t('account.paid')}</span>
-              {:else if (c.total_cents ?? 0) > 0}<span class="badge pending">{t('account.unpaid')}</span>
+              {:else if (c.total_cents ?? 0) > 0}
+                {@const left = owing.get(c.id) ?? 0}
+                {#if left === 0}<span class="badge confirmed">{t('account.paid')}</span>
+                {:else if left < (c.total_cents ?? 0)}<span class="badge pending">{t('account.partPaid', { amount: formatMoney(lang, left) })}</span>
+                {:else}<span class="badge pending">{t('account.unpaid')}</span>
+                {/if}
               {/if}
             </td>
             {#if isAdmin()}
@@ -213,7 +219,7 @@
 </section>
 
 {#if paying}
-  <PaymentDialog ownerId={owner.id} ownerName={owner.full_name} {open} secondDogPct={Number(prices?.second_dog_discount_pct ?? 0)}
+  <PaymentDialog ownerId={owner.id} ownerName={owner.full_name} {open} {owing} secondDogPct={Number(prices?.second_dog_discount_pct ?? 0)}
     onclose={() => (paying = false)} ondone={() => { paying = false; load(); }} />
 {/if}
 

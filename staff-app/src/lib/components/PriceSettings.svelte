@@ -2,20 +2,23 @@
   // Admins: the default prices. Each price list applies from its date, so a
   // price rise can be scheduled ahead; past charges and sold packs keep their
   // price. The website reads the list in force (public-prices function).
+  // Only future lists can be added, changed or deleted (the database refuses
+  // the rest): the one in force already priced charges.
   import Modal from './Modal.svelte';
   import { deletePriceList, listPriceLists, savePriceList } from '#lib/api/payments.ts';
   import { i18n, t, fmtDate } from '#lib/i18n/index.svelte.ts';
   import { centsToInput, formatMoney, formatPct, parseEuros, parsePct } from '#lib/logic/money.ts';
-  import { todayIso } from '#lib/logic/dates.ts';
+  import { addDays, todayIso } from '#lib/logic/dates.ts';
   import type { PriceList } from '#lib/types.ts';
   import { fail, ok } from '#lib/toast.svelte.ts';
 
   const today = todayIso();
+  const tomorrow = addDays(today, 1);
   const lang = $derived(i18n.lang);
   let lists = $state<PriceList[]>([]);
   let busy = $state(false);
   let deleting = $state<PriceList | null>(null);
-  let form = $state({ validFrom: today, day: '', pack: '', packDays: 10, months: 6, vat: '21', second: '0' });
+  let form = $state({ validFrom: tomorrow, day: '', pack: '', packDays: 10, months: 6, vat: '21', second: '0' });
 
   // Newest first: the first one not in the future is the one in force.
   const current = $derived(lists.find((l) => l.valid_from <= today) ?? null);
@@ -26,7 +29,7 @@
       const base = lists.find((l) => l.valid_from <= today) ?? lists[0];
       if (base) {
         form = {
-          validFrom: today,
+          validFrom: tomorrow,
           day: centsToInput(i18n.lang, base.day_price_cents),
           pack: centsToInput(i18n.lang, base.pack_price_cents),
           packDays: base.pack_days,
@@ -51,7 +54,7 @@
     second: parsePct(form.second)
   });
   const valid = $derived(
-    Boolean(form.validFrom) && parsed.day !== null && parsed.pack !== null && parsed.vat !== null && parsed.vat < 100 &&
+    Boolean(form.validFrom) && form.validFrom > today && parsed.day !== null && parsed.pack !== null && parsed.vat !== null && parsed.vat < 100 &&
       parsed.second !== null && Number.isInteger(form.packDays) && form.packDays >= 1 && form.packDays <= 100 &&
       Number.isInteger(form.months) && form.months >= 1 && form.months <= 36
   );
@@ -117,7 +120,7 @@
 
   <form class="stack" onsubmit={save}>
     <div class="grid2">
-      <label class="field"><span>{t('prices.validFrom')}</span><input type="date" bind:value={form.validFrom} required /></label>
+      <label class="field"><span>{t('prices.validFrom')}</span><input type="date" bind:value={form.validFrom} min={tomorrow} required /></label>
       <label class="field"><span>{t('prices.dayPrice')}</span><input inputmode="decimal" bind:value={form.day} required /></label>
       <label class="field"><span>{t('prices.packPrice')}</span><input inputmode="decimal" bind:value={form.pack} required /></label>
       <label class="field"><span>{t('prices.packDays')}</span><input type="number" min="1" max="100" step="1" bind:value={form.packDays} required /></label>

@@ -128,19 +128,24 @@ The app opens on **Today** after signing in.
   bucket at `dogs/<dog_id>/photo`, shown with a signed URL), see the owner's contact details, confirm,
   cancel or move bookings, record **absences** (the owner told us the dog
   won't come on a booked day, and when they told us: with 24 hours' notice,
-  i.e. before 08:00 the day before, that day is not charged), and see
+  i.e. before 08:00 the day before, that day is not charged; staff record
+  the notice as it comes in, only admins can enter an earlier time), and see
   attendance history (check-in and check-out happen on Today).
 - **Owners**: a searchable list, and an editable detail page with contact
   details, language, notes, their dogs, their **account** and the messages
   queued to them. The account shows the balance (what they owe, or their
   credit), unpaid days, packs (days left, expiry), every charge and payment.
+  Money pays the oldest charges first, so a charge shows as paid, part paid
+  (with what is left) or unpaid from the balance.
   Opening it first charges any booked or attended days not charged yet, so
   today's day can be paid on the spot. Any staff member can:
   - **Record payment** (cash, card terminal, Bizum or bank transfer): tick the
-    days being paid, change a day's price or discount on the fly (a special
-    price, the second-dog discount), and enter the amount received (it can
-    differ; the balance keeps the difference). The date can be in the past
-    (e.g. a transfer that arrived yesterday, or month-end settling);
+    items being paid, change an unpaid day's price or discount on the fly (a
+    special price, the second-dog discount; down to half price, free or less
+    needs an admin), and enter the amount received. It must cover what is
+    ticked (more stays on account); for a part payment, untick everything and
+    it pays the oldest items first. The date can be in the past (e.g. a
+    transfer that arrived yesterday, or month-end settling);
   - **Sell pack**: paid upfront; days, price, VAT and expiry start from the
     current prices and can be changed for this sale. Unpaid days from today on
     move onto the new pack;
@@ -161,7 +166,8 @@ The app opens on **Today** after signing in.
   bookings asks first and lists the dogs), staff roles and **Prices**: the
   day price, pack price, pack size, pack validity, VAT rate and second-dog
   discount, each as a price list valid from a date (so a price rise can be
-  scheduled). Charges already made and packs already sold keep their price;
+  scheduled; only from tomorrow on, and the list in force never changes).
+  Charges already made and packs already sold keep their price;
   the public website shows the price list in force. Everyone can switch between Spanish and English from
   the header; the choice is saved for the staff member and on the computer.
 

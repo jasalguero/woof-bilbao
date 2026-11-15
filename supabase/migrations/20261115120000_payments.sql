@@ -4,9 +4,11 @@
 -- Money model (all amounts are integer euro cents):
 --   * price_lists   dated price lists (day price, pack price/size/validity,
 --                   VAT rate, second-dog discount). The row in force on a day
---                   is the latest one with valid_from <= that day. Billing
---                   starts on the first row's valid_from: nothing before it is
---                   ever charged (existing customers start at zero).
+--                   is the latest one with valid_from <= that day. From the
+--                   app, admins only plan future lists: one in force or past
+--                   can never change (it priced charges already).
+--   * billing_settings.billing_start: nothing before this day is ever charged
+--                   (existing customers start at zero).
 --   * charges       what an owner owes, one row per item: a dog's day ('day'),
 --                   a pack sold ('pack') or an admin correction ('adjustment').
 --                   Each row keeps its own net price, discount and VAT rate,
@@ -20,6 +22,10 @@
 --                   through record_provider_payment() from a webhook.
 --   * balance       sum(charges) - sum(succeeded payments) + sum(succeeded
 --                   refunds). Positive = the owner owes us; negative = credit.
+--                   Which items are still unpaid comes from the balance too:
+--                   the money in pays the oldest charges first
+--                   (charge_allocation). A charge's payment_id only says
+--                   which payment it was recorded with.
 --
 -- Roles: every staff member can see all of it, record payments and sell
 -- packs (through the functions below, which also let them override the price
@@ -58,10 +64,59 @@ create table public.price_lists (
 insert into public.price_lists (valid_from, day_price_cents, pack_price_cents, pack_days, pack_valid_months, vat_rate, second_dog_discount_pct)
 values ((now() at time zone 'Europe/Madrid')::date, 3000, 27000, 10, 6, 21, 0);
 
--- The price list in force on a day (null before billing starts).
+-- People plan prices ahead; a list in force (or past) priced charges already
+-- and never changes again, and no new one can start today or earlier. The
+-- database owner (migrations, seed.sql, tests) and the service role, which
+-- have no user, are not limited.
+create function public.guard_price_lists() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if (select auth.uid()) is not null then
+    if tg_op in ('UPDATE', 'DELETE') and old.valid_from <= public.madrid_today() then
+      raise exception 'prices in force cannot change' using errcode = '22023', hint = 'prices_in_force';
+    end if;
+    if tg_op in ('INSERT', 'UPDATE') and new.valid_from <= public.madrid_today() then
+      raise exception 'new prices start tomorrow at the earliest' using errcode = '22023', hint = 'prices_in_force';
+    end if;
+  end if;
+  return coalesce(new, old);
+end $$;
+
+create trigger price_lists_guard before insert or update or delete on public.price_lists
+  for each row execute function public.guard_price_lists();
+
+-- Billing start, stored on its own (one row): nothing before this day is
+-- ever charged. Set when this migration runs; change it with SQL (see
+-- supabase/README.md), never from the app.
+create table public.billing_settings (
+  id            boolean primary key default true check (id),
+  billing_start date not null,
+  updated_at    timestamptz not null default now()
+);
+insert into public.billing_settings (billing_start) values ((now() at time zone 'Europe/Madrid')::date);
+
+create function public.billing_start() returns date
+language sql stable set search_path = '' as $$
+  select billing_start from public.billing_settings where id;
+$$;
+
+-- The price list in force on a day (null before the first list).
 create function public.prices_on(p_day date) returns public.price_lists
 language sql stable set search_path = '' as $$
   select * from public.price_lists where valid_from <= p_day order by valid_from desc limit 1;
+$$;
+
+-- The last day of a pack bought on p_start and valid p_months months: the
+-- day before the same date N months on (11 Jan + 6 months -> 10 Jul). When
+-- that month is too short for the date (31 Aug + 6 months), its last day
+-- (28 Feb). Mirrored by packExpiry() in the staff app.
+create function public.pack_expiry(p_start date, p_months integer) returns date
+language sql immutable set search_path = '' as $$
+  select case
+    when extract(day from p_start + make_interval(months => p_months)) < extract(day from p_start)
+      then (p_start + make_interval(months => p_months))::date
+    else (p_start + make_interval(months => p_months))::date - 1
+  end;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -77,6 +132,12 @@ update public.bookings set cancelled_at = updated_at where status = 'cancelled';
 create function public.set_booking_status_times() returns trigger
 language plpgsql set search_path = '' as $$
 begin
+  -- The times are the database's record of when it happened: only admins
+  -- (and the database owner) may correct them by hand.
+  if tg_op = 'UPDATE' and (select auth.uid()) is not null and not public.is_admin() then
+    new.confirmed_at := old.confirmed_at;
+    new.cancelled_at := old.cancelled_at;
+  end if;
   if new.status = 'confirmed' and (tg_op = 'INSERT' or old.status <> 'confirmed') then
     new.confirmed_at := coalesce(new.confirmed_at, now());
   end if;
@@ -88,7 +149,7 @@ begin
   return new;
 end $$;
 
-create trigger bookings_status_times before insert or update of status on public.bookings
+create trigger bookings_status_times before insert or update on public.bookings
   for each row execute function public.set_booking_status_times();
 
 -- The latest time staff may enter for something that already happened (a
@@ -98,6 +159,17 @@ create function public.latest_allowed_time() returns timestamptz
 language sql stable set search_path = '' as $$
   select greatest(now() + interval '5 minutes',
                   ((public.madrid_today() + 1)::timestamp at time zone 'Europe/Madrid'));
+$$;
+
+-- "Now" for rules about when something was entered: now(), or the same
+-- time of day on madrid_today() when the database tests pretend it is
+-- another day.
+create function public.app_now() returns timestamptz
+language sql stable set search_path = '' as $$
+  select case
+    when nullif(current_setting('woof.today', true), '') is null then now()
+    else (public.madrid_today() + (now() at time zone 'Europe/Madrid')::time) at time zone 'Europe/Madrid'
+  end;
 $$;
 
 -- The notice deadline for a day: 24 hours before opening time (08:00 in
@@ -110,13 +182,15 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Absences: an owner tells us a booked dog won't come on a day. With notice
 -- (notified_at <= notice_cutoff(day)) the day is not charged; later, it is.
--- It does not free the place in the capacity count.
+-- It does not free the place in the capacity count. Staff record a notice
+-- as it comes in (notified_at = now); only admins may enter an earlier time
+-- (a call someone took yesterday).
 -- ---------------------------------------------------------------------------
 create table public.absences (
   id          uuid primary key default gen_random_uuid(),
   dog_id      uuid not null references public.dogs (id) on delete cascade,
   day         date not null,
-  notified_at timestamptz not null default now(),
+  notified_at timestamptz not null default public.app_now(),
   note        text check (length(note) <= 500),
   created_by  uuid default auth.uid(),
   created_at  timestamptz not null default now(),
@@ -200,6 +274,14 @@ create table public.charges (
   -- The payment that settled it (null = unpaid). The balance is what counts;
   -- this link says which items a payment was for.
   payment_id       uuid references public.payments (id) on delete set null,
+  -- Set when staff changed the price on the fly (record_payment).
+  price_overridden_by uuid,
+  price_overridden_at timestamptz,
+  -- Voided charges stay for the record. The database voids some on its own
+  -- (void_reason absence_notified, cancelled_with_notice, check_in_undone,
+  -- closed_day); charge_days may charge such a day again when the reason
+  -- goes away (the absence is removed, the dog comes after all). A charge
+  -- voided by an admin is never charged again.
   voided_at        timestamptz,
   voided_by        uuid,
   void_reason      text check (length(void_reason) <= 200),
@@ -210,9 +292,8 @@ create table public.charges (
   constraint charges_positive check (kind = 'adjustment' or unit_price_cents >= 0),
   constraint charges_pack_check check (kind <> 'pack' or pack_id is not null)
 );
--- One day charge per dog per day, ever (a voided one stays, so the daily run
--- never charges that day again).
-create unique index charges_dog_day_key on public.charges (dog_id, day) where kind = 'day';
+-- One live day charge per dog per day.
+create unique index charges_dog_day_key on public.charges (dog_id, day) where kind = 'day' and voided_at is null;
 create index charges_owner_idx on public.charges (owner_id, day);
 create index charges_day_idx on public.charges (day);
 create index charges_pack_idx on public.charges (pack_id) where pack_id is not null;
@@ -227,8 +308,12 @@ create trigger payments_updated_at before update on public.payments
   for each row execute function public.set_updated_at();
 create trigger charges_updated_at before update on public.charges
   for each row execute function public.set_updated_at();
+create trigger billing_settings_updated_at before update on public.billing_settings
+  for each row execute function public.set_updated_at();
 
 create trigger price_lists_audit after insert or update or delete on public.price_lists
+  for each row execute function public.audit_row();
+create trigger billing_settings_audit after insert or update or delete on public.billing_settings
   for each row execute function public.audit_row();
 create trigger absences_audit after insert or update or delete on public.absences
   for each row execute function public.audit_row();
@@ -259,6 +344,48 @@ left join lateral (
   order by c.created_at limit 1
 ) s on true;
 
+-- charge_allocation: what is still owed on each live charge with a positive
+-- total. The money in (succeeded payments minus refunds, plus any credit
+-- from negative corrections) pays the owner's charges oldest first, so a
+-- part payment leaves a charge part paid, never "paid" (oldest = by day,
+-- then created_at; on a tie days before packs). With p_until, only
+-- charges up to that day and money in up to that day (Bilbao time): the
+-- state at the end of that day (the monthly report).
+create function public.charge_allocation(p_owner_id uuid default null, p_until date default null)
+returns table (charge_id uuid, owner_id uuid, kind public.charge_kind, day date, total_cents integer, owing_cents integer)
+language sql stable security invoker set search_path = '' as $$
+  with ch as (
+    select c.id, c.owner_id, c.kind, c.day, c.total_cents, c.created_at
+    from public.charges c
+    where c.voided_at is null
+      and (p_owner_id is null or c.owner_id = p_owner_id)
+      and (p_until is null or c.day <= p_until)
+  ),
+  money_in as (
+    select m.owner_id, sum(m.cents) as cents
+    from (
+      select y.owner_id, case when y.kind = 'refund' then -y.amount_cents else y.amount_cents end as cents
+      from public.payments y
+      where y.status = 'succeeded'
+        and (p_owner_id is null or y.owner_id = p_owner_id)
+        and (p_until is null or (y.paid_at at time zone 'Europe/Madrid')::date <= p_until)
+      union all
+      select ch.owner_id, -ch.total_cents from ch where ch.total_cents < 0
+    ) m
+    group by m.owner_id
+  ),
+  running as (
+    select ch.*,
+           sum(ch.total_cents) over (partition by ch.owner_id order by ch.day, ch.created_at, ch.kind, ch.id) as upto
+    from ch
+    where ch.total_cents > 0
+  )
+  select r.id, r.owner_id, r.kind, r.day, r.total_cents,
+         least(r.total_cents, greatest(0, r.upto - coalesce(mi.cents, 0)))::integer
+  from running r
+  left join money_in mi on mi.owner_id = r.owner_id;
+$$;
+
 create view public.owner_balances with (security_invoker = true) as
 select
   o.id                                                    as owner_id,
@@ -268,14 +395,11 @@ select
   coalesce(c.charged, 0)                                  as charged_cents,
   coalesce(p.paid, 0)                                     as paid_cents,
   coalesce(c.charged, 0) - coalesce(p.paid, 0)            as balance_cents,
-  coalesce(c.unpaid_days, 0)                              as unpaid_days,
-  c.oldest_unpaid_day
+  coalesce(u.unpaid_days, 0)                              as unpaid_days,
+  u.oldest_unpaid_day
 from public.owners o
 left join lateral (
-  select
-    sum(x.total_cents)::integer as charged,
-    (count(*) filter (where x.kind = 'day' and x.payment_id is null and x.total_cents > 0))::integer as unpaid_days,
-    min(x.day) filter (where x.payment_id is null and x.total_cents > 0) as oldest_unpaid_day
+  select sum(x.total_cents)::integer as charged
   from public.charges x
   where x.owner_id = o.id and x.voided_at is null
 ) c on true
@@ -283,36 +407,44 @@ left join lateral (
   select sum(case when y.kind = 'refund' then -y.amount_cents else y.amount_cents end)::integer as paid
   from public.payments y
   where y.owner_id = o.id and y.status = 'succeeded'
-) p on true;
+) p on true
+left join lateral (
+  -- Days not fully paid (part paid ones count), oldest charges paid first.
+  select (count(*) filter (where a.kind = 'day' and a.owing_cents > 0))::integer as unpaid_days,
+         min(a.day) filter (where a.owing_cents > 0) as oldest_unpaid_day
+  from public.charge_allocation(o.id) a
+) u on true;
 
 -- ---------------------------------------------------------------------------
 -- charge_days: turns booked and attended days into day charges. Idempotent:
--- a dog's day is charged at most once (voided charges count too). Run every
--- evening by cron for the last 31 days, and by the app (for one owner) when
--- staff open the payment screen, so today's day can be paid on the spot.
+-- a dog's day has at most one live charge, and a day an admin voided is
+-- never charged again. Run every evening by cron for the last 31 days, and
+-- by the app (for one owner) when staff open the payment screen, so today's
+-- day can be paid on the spot.
 --
 -- A dog's day is charged when, on an open day (Mon-Fri, not closed) on or
--- after billing started and up to today:
+-- after billing_start() and up to today:
 --   * it has a confirmed booking and no absence notified with 24 h notice; or
 --   * its booking was cancelled late (after the day's notice cutoff), having
 --     been confirmed; or
 --   * it was checked in (a walk-in, or a booked dog that came anyway).
 -- Price: the price list in force that day. If the owner has a pack valid that
 -- day with days left, the day uses it instead (price 0); the pack that
--- expires first is used first. From the owner's second dog charged that day,
--- the second-dog discount applies (0 % by default, i.e. off).
+-- expires first is used first. The second-dog discount (0 % by default, i.e.
+-- off) goes to every dog of the owner there that day except the first one by
+-- dogs.created_at (then id): the same dog pays full price whatever order the
+-- days are charged in. A dog charged before an older dog of the same owner
+-- came that day keeps its price.
 -- ---------------------------------------------------------------------------
 create function public.charge_days(p_from date, p_to date, p_owner_id uuid default null)
 returns integer
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_start date := (select min(valid_from) from public.price_lists);
-  v_from  date := greatest(p_from, v_start);
+  v_from  date := greatest(p_from, public.billing_start());
   v_to    date := least(p_to, public.madrid_today());
   v_count integer := 0;
   v_price public.price_lists;
   v_pack  uuid;
-  v_rank  integer;
   r       record;
 begin
   -- Staff from the app; the cron job runs as the database owner (no user).
@@ -326,7 +458,8 @@ begin
     raise exception 'date range too long' using errcode = '22023', hint = 'bad_input';
   end if;
 
-  -- Two runs at once would both see a day as not charged yet.
+  -- Two runs at once would both see a day as not charged yet; sell_pack
+  -- takes the same lock, so a day and a new pack never race for pack days.
   perform pg_advisory_xact_lock(hashtext('public.charge_days'));
 
   for r in
@@ -349,19 +482,37 @@ begin
       select a.dog_id, a.day, null::uuid as booking_id
       from public.attendance a
       where a.day between v_from and v_to and a.checked_in_at is not null
+        and public.is_open_day(a.day)
     ),
     dog_days as (
       select x.dog_id, x.day,
              (array_agg(x.booking_id order by x.booking_id) filter (where x.booking_id is not null))[1] as booking_id
       from (select * from booked union all select * from attended) x
       group by x.dog_id, x.day
+    ),
+    present as (
+      select dd.dog_id, dd.day from dog_days dd
+      union
+      select c.dog_id, c.day from public.charges c
+      where c.kind = 'day' and c.voided_at is null and c.dog_id is not null and c.day between v_from and v_to
+    ),
+    ranked as (
+      select pr.dog_id, pr.day, g.owner_id, g.created_at,
+             (row_number() over (partition by g.owner_id, pr.day order by g.created_at, g.id) - 1)::integer as rank
+      from present pr
+      join public.dogs g on g.id = pr.dog_id
     )
-    select dd.dog_id, dd.day, dd.booking_id, g.owner_id
+    select dd.dog_id, dd.day, dd.booking_id, rk.owner_id, rk.rank
     from dog_days dd
-    join public.dogs g on g.id = dd.dog_id
-    where (p_owner_id is null or g.owner_id = p_owner_id)
-      and not exists (select 1 from public.charges c where c.kind = 'day' and c.dog_id = dd.dog_id and c.day = dd.day)
-    order by dd.day, g.owner_id, g.created_at, g.id
+    join ranked rk on rk.dog_id = dd.dog_id and rk.day = dd.day
+    where (p_owner_id is null or rk.owner_id = p_owner_id)
+      and not exists (
+        select 1 from public.charges c
+        where c.kind = 'day' and c.dog_id = dd.dog_id and c.day = dd.day
+          and (c.voided_at is null
+               or c.void_reason is null
+               or c.void_reason not in ('absence_notified', 'cancelled_with_notice', 'check_in_undone', 'closed_day')))
+    order by dd.day, rk.owner_id, rk.created_at, dd.dog_id
   loop
     v_price := public.prices_on(r.day);
     continue when v_price.id is null;
@@ -374,15 +525,12 @@ begin
     order by p.expires_on, p.created_at
     limit 1;
 
-    select count(*) into v_rank from public.charges c
-    where c.kind = 'day' and c.owner_id = r.owner_id and c.day = r.day and c.voided_at is null;
-
     insert into public.charges (owner_id, dog_id, kind, day, booking_id, walk_in,
                                 unit_price_cents, discount_pct, vat_rate, pack_id, price_list_id, created_by)
     values (
       r.owner_id, r.dog_id, 'day', r.day, r.booking_id, r.booking_id is null,
       case when v_pack is null then v_price.day_price_cents else 0 end,
-      case when v_pack is null and v_rank >= 1 then v_price.second_dog_discount_pct else 0 end,
+      case when v_pack is null and r.rank >= 1 then v_price.second_dog_discount_pct else 0 end,
       v_price.vat_rate, v_pack, v_price.id, auth.uid()
     );
     v_count := v_count + 1;
@@ -396,9 +544,15 @@ select cron.schedule('charge-days', '0 19 * * *',
   $$select public.charge_days(public.madrid_today() - 31, public.madrid_today())$$);
 
 -- ---------------------------------------------------------------------------
--- Voiding day charges that should not exist: an absence notified in time, or
--- a day closed after it was charged ("closed days are never charged"). A paid
--- charge is voided too; its payment then stays on the account as credit.
+-- Voiding day charges that should not exist. Charges already paid (linked to
+-- a payment) are left alone: an admin decides about refunds or credit.
+--   * an absence notified in time, for a booked day;
+--   * a booking cancelled in time (an admin entered an earlier cancel time);
+--   * an undone check-in of a dog that was not booked (a walk-in);
+--   * a day closed after it was charged ("closed days are never charged";
+--     admins only; this one voids paid charges too, which leaves credit).
+-- These voids name their reason, so charge_days charges the day again if the
+-- reason goes away (the absence is removed, the dog is checked in again).
 -- ---------------------------------------------------------------------------
 create function public.void_day_charges_for_absence() returns trigger
 language plpgsql security definer set search_path = '' as $$
@@ -406,16 +560,59 @@ begin
   if new.notified_at > public.latest_allowed_time() then
     raise exception 'notified_at cannot be in the future' using errcode = '22023', hint = 'bad_input';
   end if;
+  -- Staff record a notice when it comes in; an earlier time needs an admin.
+  if (select auth.uid()) is not null and not public.is_admin()
+     and (tg_op = 'INSERT' or new.notified_at is distinct from old.notified_at
+          or new.day is distinct from old.day or new.dog_id is distinct from old.dog_id)
+     and new.notified_at < public.app_now() - interval '10 minutes' then
+    raise exception 'only admins can enter an earlier notice time' using errcode = '22023', hint = 'backdate_admin_only';
+  end if;
   if new.notified_at <= public.notice_cutoff(new.day) then
     update public.charges
     set voided_at = now(), voided_by = auth.uid(), void_reason = 'absence_notified'
-    where kind = 'day' and dog_id = new.dog_id and day = new.day and voided_at is null;
+    where kind = 'day' and dog_id = new.dog_id and day = new.day and voided_at is null
+      and booking_id is not null and payment_id is null;
   end if;
   return new;
 end $$;
 
 create trigger absences_void_charges before insert or update on public.absences
   for each row execute function public.void_day_charges_for_absence();
+
+create function public.void_day_charges_for_cancellation() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.status = 'cancelled' and new.cancelled_at is not null then
+    update public.charges c
+    set voided_at = now(), voided_by = auth.uid(), void_reason = 'cancelled_with_notice'
+    where c.kind = 'day' and c.booking_id = new.id and c.voided_at is null and c.payment_id is null
+      and new.cancelled_at <= public.notice_cutoff(c.day)
+      and not exists (select 1 from public.attendance a
+                      where a.dog_id = c.dog_id and a.day = c.day and a.checked_in_at is not null);
+  end if;
+  return new;
+end $$;
+
+create trigger bookings_void_charges after update of status, cancelled_at on public.bookings
+  for each row execute function public.void_day_charges_for_cancellation();
+
+-- undo_check_in() deletes the attendance row: a walk-in day goes with it
+-- (also when the check-in is cleared or moved by hand).
+create function public.void_walk_in_charge() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if old.checked_in_at is not null
+     and (tg_op = 'DELETE' or new.checked_in_at is null or new.day <> old.day or new.dog_id <> old.dog_id) then
+    update public.charges
+    set voided_at = now(), voided_by = auth.uid(), void_reason = 'check_in_undone'
+    where kind = 'day' and dog_id = old.dog_id and day = old.day and voided_at is null
+      and booking_id is null and payment_id is null;
+  end if;
+  return coalesce(new, old);
+end $$;
+
+create trigger attendance_void_walk_in after delete or update of checked_in_at, day, dog_id on public.attendance
+  for each row execute function public.void_walk_in_charge();
 
 create function public.void_day_charges_for_closed_day() returns trigger
 language plpgsql security definer set search_path = '' as $$
@@ -434,15 +631,20 @@ create trigger capacity_void_charges after insert or update on public.capacity
 -- ---------------------------------------------------------------------------
 -- record_payment: any staff member records money received, by hand.
 --
--- p_charge_ids: the unpaid charges this payment is for (they get linked to
---   it). Without them, the oldest unpaid charges that fit in the amount are
---   linked. The amount does not have to match: the balance is what counts.
+-- p_charge_ids: the charges this payment is for (still owing something; they
+--   get linked to it). The amount must cover what they still owe. Without
+--   them, the amount can be anything (a part payment, money on account) and
+--   the oldest owing charges that fit in it are linked. Either way the
+--   balance is what counts: money pays the oldest charges first.
 -- p_overrides: [{id, unit_price_cents?, discount_pct?}, ...] changes the
---   price of selected, uncovered day charges on the fly (e.g. a special price
---   or the second-dog discount). The audit log keeps the old values.
+--   price of selected, uncovered, unpaid day charges on the fly (a special
+--   price, the second-dog discount). The charge records who did it and the
+--   audit log keeps the old values. Staff may give up to half off the list
+--   price; free days and bigger cuts need an admin.
 -- p_paid_at: when the money came in (default now; may be in the past, e.g. a
 --   transfer seen today).
--- Errors (22023) carry a hint: bad_amount, bad_input, charge_not_open.
+-- Errors (22023) carry a hint: bad_amount, bad_input, charge_not_open,
+-- amount_below_selected, override_admin_only.
 -- ---------------------------------------------------------------------------
 create function public.record_payment(
   p_owner_id     uuid,
@@ -457,10 +659,15 @@ language plpgsql security definer set search_path = '' as $$
 declare
   v_payment public.payments;
   v_ids     uuid[] := coalesce(p_charge_ids, '{}');
+  v_admin   boolean := public.is_admin();
   v_item    jsonb;
   v_id      uuid;
   v_unit    integer;
   v_disc    numeric;
+  v_charge  public.charges;
+  v_list    integer;
+  v_net     integer;
+  v_owing   integer;
   v_left    integer;
   r         record;
 begin
@@ -488,8 +695,8 @@ begin
   if exists (
     select 1 from unnest(v_ids) as s (id)
     where not exists (
-      select 1 from public.charges c
-      where c.id = s.id and c.owner_id = p_owner_id and c.voided_at is null and c.payment_id is null)
+      select 1 from public.charge_allocation(p_owner_id) a
+      where a.charge_id = s.id and a.owing_cents > 0)
   ) then
     raise exception 'a charge is not open for this owner' using errcode = '22023', hint = 'charge_not_open';
   end if;
@@ -512,13 +719,52 @@ begin
       if (v_unit is not null and (v_unit < 0 or v_unit > 100000)) or (v_disc is not null and (v_disc < 0 or v_disc > 100)) then
         raise exception 'override out of range' using errcode = '22023', hint = 'bad_input';
       end if;
-      update public.charges
-      set unit_price_cents = coalesce(v_unit, unit_price_cents),
-          discount_pct = coalesce(v_disc, discount_pct)
-      where id = v_id and kind = 'day' and pack_id is null;
+      select c.* into v_charge from public.charges c
+      join public.charge_allocation(p_owner_id) a on a.charge_id = c.id
+      where c.id = v_id and c.kind = 'day' and c.pack_id is null and a.owing_cents = a.total_cents
+      for update of c;
       if not found then
-        raise exception 'only uncovered day charges can be repriced' using errcode = '22023', hint = 'bad_input';
+        raise exception 'only unpaid, uncovered day charges can be repriced' using errcode = '22023', hint = 'bad_input';
       end if;
+      v_unit := coalesce(v_unit, v_charge.unit_price_cents);
+      v_disc := coalesce(v_disc, v_charge.discount_pct);
+      if not v_admin then
+        v_list := coalesce((select pl.day_price_cents from public.price_lists pl where pl.id = v_charge.price_list_id),
+                           (public.prices_on(v_charge.day)).day_price_cents, 0);
+        v_net := round(v_unit * (100 - v_disc) / 100);
+        if v_net <= 0 or v_net * 2 < v_list then
+          raise exception 'only admins can give a day for free or at less than half price'
+            using errcode = '22023', hint = 'override_admin_only';
+        end if;
+      end if;
+      update public.charges
+      set unit_price_cents = v_unit, discount_pct = v_disc,
+          price_overridden_by = auth.uid(), price_overridden_at = now()
+      where id = v_id;
+    end loop;
+  end if;
+
+  if cardinality(v_ids) > 0 then
+    select coalesce(sum(a.owing_cents), 0) into v_owing
+    from public.charge_allocation(p_owner_id) a where a.charge_id = any (v_ids);
+    if p_amount_cents < v_owing then
+      raise exception 'the amount does not cover the selected items' using errcode = '22023', hint = 'amount_below_selected';
+    end if;
+  end if;
+
+  if cardinality(v_ids) = 0 then
+    -- Link the oldest owing items (not yet linked) that fit in the amount.
+    v_left := p_amount_cents;
+    for r in
+      select a.charge_id, a.owing_cents
+      from public.charge_allocation(p_owner_id) a
+      join public.charges c on c.id = a.charge_id
+      where a.owing_cents > 0 and c.payment_id is null
+      order by a.day, c.created_at, c.kind, c.id
+    loop
+      exit when r.owing_cents > v_left;
+      v_ids := v_ids || r.charge_id;
+      v_left := v_left - r.owing_cents;
     end loop;
   end if;
 
@@ -527,20 +773,7 @@ begin
           coalesce(p_paid_at, now()), nullif(trim(p_note), ''), auth.uid())
   returning * into v_payment;
 
-  if cardinality(v_ids) > 0 then
-    update public.charges set payment_id = v_payment.id where id = any (v_ids);
-  else
-    v_left := p_amount_cents;
-    for r in
-      select c.id, c.total_cents from public.charges c
-      where c.owner_id = p_owner_id and c.voided_at is null and c.payment_id is null and c.total_cents > 0
-      order by c.day, c.created_at
-    loop
-      exit when r.total_cents > v_left;
-      update public.charges set payment_id = v_payment.id where id = r.id;
-      v_left := v_left - r.total_cents;
-    end loop;
-  end if;
+  update public.charges set payment_id = v_payment.id where id = any (v_ids);
 
   return v_payment;
 end $$;
@@ -548,9 +781,11 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- sell_pack: any staff member sells a pack, paid upfront. Defaults come from
 -- the price list in force on p_starts_on (default today); staff can override
--- the net price, number of days, expiry and VAT rate on the fly. The pack
--- keeps that price for good. Unpaid, uncovered day charges of the owner from
--- p_starts_on on are moved onto the new pack straight away.
+-- the net price, number of days, expiry and VAT rate on the fly (a price
+-- per day under half the list's needs an admin). The pack keeps that price
+-- for good. Unpaid, uncovered day charges of the owner from p_starts_on on
+-- are moved onto the new pack straight away.
+-- Errors (22023) carry a hint: no_prices, bad_input, override_admin_only.
 -- ---------------------------------------------------------------------------
 create function public.sell_pack(
   p_owner_id     uuid,
@@ -576,7 +811,7 @@ begin
   if not public.is_staff() then
     raise exception 'only staff can sell packs' using errcode = '42501';
   end if;
-  if v_price.id is null then
+  if v_price.id is null or v_start < public.billing_start() then
     raise exception 'no prices set for %', v_start using errcode = '22023', hint = 'no_prices';
   end if;
   if p_method is null then
@@ -593,6 +828,17 @@ begin
   if v_days < 1 or v_days > 100 then
     raise exception 'a pack has 1 to 100 days' using errcode = '22023', hint = 'bad_input';
   end if;
+  -- Staff may sell at up to half off the list price per day; less needs an admin.
+  if not public.is_admin()
+     and (coalesce(p_price_cents, v_price.pack_price_cents) <= 0
+          or 2 * coalesce(p_price_cents, v_price.pack_price_cents)::bigint * v_price.pack_days
+             < v_price.pack_price_cents::bigint * v_days) then
+    raise exception 'only admins can sell a pack free or at less than half price'
+      using errcode = '22023', hint = 'override_admin_only';
+  end if;
+  -- The same lock as charge_days: a day being charged now and this pack
+  -- never both take the pack's days.
+  perform pg_advisory_xact_lock(hashtext('public.charge_days'));
   perform 1 from public.owners where id = p_owner_id for update;
   if not found then
     raise exception 'owner % not found', p_owner_id using errcode = 'P0002';
@@ -601,7 +847,7 @@ begin
   insert into public.packs (owner_id, days_total, starts_on, expires_on, price_list_id, note)
   values (
     p_owner_id, v_days, v_start,
-    coalesce(p_expires_on, (v_start + make_interval(months => v_price.pack_valid_months))::date - 1),
+    coalesce(p_expires_on, public.pack_expiry(v_start, v_price.pack_valid_months)),
     v_price.id, nullif(trim(p_note), '')
   )
   returning * into v_pack;
@@ -663,11 +909,27 @@ begin
   insert into public.payments (owner_id, kind, method, provider, external_id, status, amount_cents, paid_at, metadata, recorded_by)
   values (p_owner_id, 'payment', p_method, p_provider, p_external_id, p_status, p_amount_cents,
           coalesce(p_paid_at, now()), coalesce(p_metadata, '{}'), null)
-  on conflict (provider, external_id) do update
-    set status = excluded.status,
-        paid_at = coalesce(p_paid_at, public.payments.paid_at),
-        metadata = public.payments.metadata || excluded.metadata
+  on conflict (provider, external_id) do nothing
   returning * into v_payment;
+
+  if v_payment.id is null then
+    -- A repeated or later event for a payment we know.
+    select * into v_payment from public.payments
+    where provider = p_provider and external_id = p_external_id
+    for update;
+    if v_payment.owner_id <> p_owner_id or v_payment.amount_cents <> p_amount_cents then
+      raise exception 'provider payment % does not match the one recorded', p_external_id
+        using errcode = '22023', hint = 'provider_mismatch';
+    end if;
+    -- 'succeeded' is final: a late or replayed 'pending'/'failed' event
+    -- never undoes money received (a refund is its own row).
+    update public.payments
+    set status = case when status = 'succeeded' then status else p_status end,
+        paid_at = case when status = 'succeeded' then paid_at else coalesce(p_paid_at, paid_at) end,
+        metadata = metadata || coalesce(p_metadata, '{}')
+    where id = v_payment.id
+    returning * into v_payment;
+  end if;
 
   if v_payment.status = 'succeeded' and p_charge_ids is not null then
     update public.charges set payment_id = v_payment.id
@@ -676,6 +938,31 @@ begin
   end if;
   return v_payment;
 end $$;
+
+-- Refunds give back part or all of one payment of the same owner (or, with
+-- no refund_of, credit on the account): never more than was paid.
+create function public.check_refund() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_of       public.payments;
+  v_refunded bigint;
+begin
+  if new.kind = 'refund' and new.refund_of is not null then
+    select * into v_of from public.payments where id = new.refund_of for update;
+    if v_of.owner_id is distinct from new.owner_id or v_of.kind <> 'payment' or v_of.status <> 'succeeded' then
+      raise exception 'a refund must be of a payment by the same owner' using errcode = '22023', hint = 'bad_refund';
+    end if;
+    select coalesce(sum(amount_cents), 0) into v_refunded from public.payments
+    where refund_of = new.refund_of and kind = 'refund' and status = 'succeeded' and id <> new.id;
+    if v_refunded + new.amount_cents > v_of.amount_cents then
+      raise exception 'a refund cannot be more than what is left of the payment' using errcode = '22023', hint = 'bad_refund';
+    end if;
+  end if;
+  return new;
+end $$;
+
+create trigger payments_check_refund before insert or update on public.payments
+  for each row execute function public.check_refund();
 
 -- ---------------------------------------------------------------------------
 -- Balance reminder email (soft: it never blocks anything). Staff press a
@@ -777,7 +1064,8 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- monthly_report (admins): income by payment method (by the day the money
 -- came in, Bilbao time), what was charged (net, VAT, total by kind), and who
--- owed what at the end of the month.
+-- owed what at the end of the month (charges up to then, money in up to
+-- then; a voided or edited charge counts as it is now).
 -- ---------------------------------------------------------------------------
 create function public.monthly_report(p_month date) returns jsonb
 language plpgsql stable security invoker set search_path = '' as $$
@@ -826,16 +1114,22 @@ begin
   from (
     select o.id as owner_id, o.full_name, o.email, o.phone,
            (coalesce(ch.charged, 0) - coalesce(pa.paid, 0))::integer as balance_cents,
-           coalesce(ch.unpaid_days, 0)::integer as unpaid_days,
-           ch.oldest_unpaid_day
+           coalesce(al.unpaid_days, 0)::integer as unpaid_days,
+           al.oldest_unpaid_day
     from public.owners o
     left join lateral (
-      select sum(x.total_cents) as charged,
-             count(*) filter (where x.kind = 'day' and x.payment_id is null and x.total_cents > 0) as unpaid_days,
-             min(x.day) filter (where x.payment_id is null and x.total_cents > 0) as oldest_unpaid_day
+      select sum(x.total_cents) as charged
       from public.charges x
       where x.owner_id = o.id and x.voided_at is null and x.day <= v_to
     ) ch on true
+    left join (
+      -- What was still owed at the end of the month, oldest charges paid first.
+      select a.owner_id,
+             count(*) filter (where a.kind = 'day' and a.owing_cents > 0) as unpaid_days,
+             min(a.day) filter (where a.owing_cents > 0) as oldest_unpaid_day
+      from public.charge_allocation(null, v_to) a
+      group by a.owner_id
+    ) al on al.owner_id = o.id
     left join lateral (
       select sum(case when y.kind = 'refund' then -y.amount_cents else y.amount_cents end) as paid
       from public.payments y
@@ -889,6 +1183,7 @@ $$;
 -- Row-level security
 -- ---------------------------------------------------------------------------
 alter table public.price_lists enable row level security;
+alter table public.billing_settings enable row level security;
 alter table public.absences    enable row level security;
 alter table public.packs       enable row level security;
 alter table public.payments    enable row level security;
@@ -905,11 +1200,16 @@ begin
   end loop;
 end $$;
 
+-- Billing start: staff read it; it is changed with SQL only.
+create policy "staff can read" on public.billing_settings for select to authenticated using ((select public.is_staff()));
+
 -- Plain staff may also insert a manual payment directly (never a refund, an
--- online one or one that is not 'succeeded').
+-- online one or one that is not 'succeeded'), in their own name and not
+-- dated in the future.
 create policy "staff can insert manual payments" on public.payments for insert to authenticated
   with check ((select public.is_staff()) and kind = 'payment' and provider = 'manual' and status = 'succeeded'
-              and external_id is null and refund_of is null);
+              and external_id is null and refund_of is null
+              and recorded_by = (select auth.uid()) and paid_at <= public.latest_allowed_time());
 
 -- Absences are everyday data: staff read, add and remove them.
 create policy "staff can read" on public.absences for select to authenticated using ((select public.is_staff()));
@@ -921,8 +1221,21 @@ create policy "staff can delete" on public.absences for delete to authenticated 
 -- ---------------------------------------------------------------------------
 -- Privileges
 -- ---------------------------------------------------------------------------
-revoke all on public.price_lists, public.absences, public.packs, public.payments, public.charges,
+revoke all on public.price_lists, public.billing_settings, public.absences, public.packs, public.payments, public.charges,
               public.owner_balances, public.pack_balances from anon;
+
+revoke execute on function public.guard_price_lists() from anon, public;
+revoke execute on function public.billing_start() from anon, public;
+revoke execute on function public.pack_expiry(date, integer) from anon, public;
+grant execute on function public.pack_expiry(date, integer) to authenticated, service_role;
+revoke execute on function public.app_now() from anon, public;
+revoke execute on function public.charge_allocation(uuid, date) from anon, public;
+revoke execute on function public.void_day_charges_for_cancellation() from anon, public;
+revoke execute on function public.void_walk_in_charge() from anon, public;
+revoke execute on function public.check_refund() from anon, public;
+grant execute on function public.billing_start() to authenticated, service_role;
+grant execute on function public.app_now() to authenticated, service_role;
+grant execute on function public.charge_allocation(uuid, date) to authenticated, service_role;
 
 revoke execute on function public.prices_on(date) from anon, public;
 revoke execute on function public.notice_cutoff(date) from anon, public;

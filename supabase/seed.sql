@@ -69,6 +69,7 @@ insert into public.booking_requests (payload) values (
 -- Itziar bought a pack before that (it covers Rocky's days) and Mark paid
 -- part of his days by Bizum.
 update public.price_lists set valid_from = public.madrid_today() - 30;
+update public.billing_settings set billing_start = public.madrid_today() - 30;
 
 insert into public.bookings (dog_id, start_date, end_date, weekdays, status) values
   ('c0000000-0000-0000-0000-000000000003', public.madrid_today() - 28, public.madrid_today() - 1, '{1,3,5}', 'confirmed'),
@@ -76,7 +77,7 @@ insert into public.bookings (dog_id, start_date, end_date, weekdays, status) val
 
 insert into public.packs (id, owner_id, days_total, starts_on, expires_on, price_list_id)
 select 'd0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', p.pack_days,
-       public.madrid_today() - 25, (public.madrid_today() - 25 + make_interval(months => p.pack_valid_months))::date - 1, p.id
+       public.madrid_today() - 25, public.pack_expiry(public.madrid_today() - 25, p.pack_valid_months), p.id
 from public.price_lists p order by p.valid_from limit 1;
 insert into public.payments (id, owner_id, method, amount_cents, paid_at, recorded_by) values
   ('e0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', 'card', 32670, now() - interval '25 days', 'a0000000-0000-0000-0000-000000000002'),

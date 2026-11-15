@@ -25,7 +25,7 @@ Needs Docker and Node.js (for `npx`).
 ```sh
 npx supabase start            # starts Postgres, Auth, API, Storage, Edge Runtime
 npx supabase db reset         # applies migrations + seed.sql
-npx supabase test db          # 230 database tests
+npx supabase test db          # 275 database tests
 npx deno test supabase/functions/                  # form validation, email templates, sender, prices, webhooks
 npx supabase functions serve --no-verify-jwt       # serves the functions on :54321
 ```
@@ -80,8 +80,10 @@ without them before committing: the committed pages stay in mock-up mode
 6. Check the prices in the staff app (Settings → Prices, as an admin). The
    payments migration creates the default list (EUR 30 a day, 10-day pack
    EUR 270, valid 6 months, VAT 21 %, no second-dog discount) **valid from the
-   day `db push` runs**: billing starts that day, so existing customers start
-   at zero.
+   day `db push` runs**, and `billing_settings.billing_start` is set to that
+   day: existing customers start at zero. To start billing on another day,
+   change it with SQL (it is not editable from the app), e.g.
+   `update public.billing_settings set billing_start = '2026-12-01';`
 
 ### Spam protection
 
@@ -187,9 +189,15 @@ always integer euro **cents**; the currency is EUR.
   days per pack, pack validity in months, VAT rate and the second-dog
   discount (0 % = off), and applies from `valid_from` until the next row.
   `prices_on(day)` returns the row in force. Admins add rows (Settings →
-  Prices); a future row schedules a price change. Same price for every dog
-  size, no monthly plans. Billing starts on the first row's `valid_from`;
-  nothing before it is ever charged.
+  Prices); a future row schedules a price change. From the app only future
+  rows (`valid_from` tomorrow or later) can be added, changed or deleted: the
+  row in force and past ones priced charges already (trigger
+  `guard_price_lists`, hint `prices_in_force`; migrations, `seed.sql` and the
+  tests, which have no user, are not limited). Same price for every dog
+  size, no monthly plans.
+- `billing_settings`: one row, `billing_start`. Nothing before that day is
+  ever charged (`billing_start()`); `sell_pack` refuses packs starting
+  earlier. Staff read it; it is changed with SQL only.
 - `charges`: what an owner owes, one row per item: `day` (one dog, one day),
   `pack` (a pack sold) or `adjustment` (an admin correction, may be
   negative). Each row keeps its own net unit price, discount, VAT rate and
@@ -197,8 +205,10 @@ always integer euro **cents**; the currency is EUR.
   price change never rewrites history and the rows are ready to become
   invoice lines later (invoices and TicketBAI are out of scope). A day
   covered by a pack points at it (`pack_id`) and costs 0. `payment_id` says
-  which payment settled it. Voided rows (`voided_at`, `void_reason`) stay for
-  the record and stop counting.
+  which payment it was recorded with; whether it is paid comes from the
+  balance (below). A price changed on the fly records `price_overridden_by`
+  and `price_overridden_at`. Voided rows (`voided_at`, `void_reason`) stay
+  for the record and stop counting.
 - `packs`: prepaid days that belong to the owner, usable by any of their
   dogs, from `starts_on` to `expires_on`. `pack_balances` adds `days_used` and
   `days_left`. A pack keeps the price it was sold at. Unused days are never
@@ -208,24 +218,34 @@ always integer euro **cents**; the currency is EUR.
   `provider` (`manual` for staff-recorded ones), `external_id` (the
   provider's id; unique per provider), `status` (`pending`, `succeeded`,
   `failed`, `cancelled`; manual ones are always `succeeded`), `metadata`
-  (jsonb) and `refund_of`. `recorded_by` is the staff member.
+  (jsonb) and `refund_of`. `recorded_by` is the staff member. A refund with
+  `refund_of` must be of a succeeded payment of the same owner and never
+  more than what is left of it (hint `bad_refund`).
 - `absences`: an owner told us a booked dog won't come on a day, and when
-  (`notified_at`). It does not free the place in the capacity count.
+  (`notified_at`, default now). Staff record a notice as it comes in; only
+  admins may enter an earlier time (hint `backdate_admin_only`). It does not
+  free the place in the capacity count.
+- `charge_allocation(owner?, until?)`: what each live charge still owes. The
+  money in (payments minus refunds, plus credit from negative corrections)
+  pays the owner's charges **oldest first**, so a part payment leaves the
+  oldest charge part paid, never paid. With `until`, the state at the end of
+  that day (charges and money in up to then).
 - `owner_balances` (view): per owner, `charged_cents`, `paid_cents`
   (payments minus refunds, succeeded only), `balance_cents` (positive = owes,
-  negative = credit), `unpaid_days` and `oldest_unpaid_day`.
-- `bookings` gained `confirmed_at` and `cancelled_at` (set by a trigger), so a
-  late cancellation can still be charged.
+  negative = credit), and from `charge_allocation`, `unpaid_days` (part paid
+  ones count) and `oldest_unpaid_day`.
+- `bookings` gained `confirmed_at` and `cancelled_at` (set by a trigger; only
+  admins may correct them), so a late cancellation can still be charged.
 
 ### What gets charged
 
 `charge_days(from, to, owner?)` turns days into `day` charges. A pg_cron job
 (`charge-days`, 19:00 UTC) runs it every evening for the last 31 days, and the
 app runs it for one owner when their page opens, so today's day can be paid on
-the spot. It is idempotent: a dog's day is charged once, ever (a voided day is
-not charged again). A dog's day is charged, at the price in force that day,
-when it is an open day (Mon-Fri, not closed), on or after billing started and
-not in the future, and:
+the spot. It is idempotent: a dog's day has at most one live charge, and a day
+an admin voided is never charged again. A dog's day is charged, at the price
+in force that day, when it is an open day (Mon-Fri, not closed), on or after
+`billing_start()` and not in the future, and:
 
 - it has a **confirmed booking**, unless an absence was notified with **24
   hours' notice** (at or before 08:00 Bilbao time the day before;
@@ -236,11 +256,25 @@ not in the future, and:
 
 Pending bookings, closed days and cancellations with notice are never
 charged. If the owner has a pack valid that day with days left, the day uses
-it (the pack that expires first goes first). From the owner's second dog
-charged on the same day, the second-dog discount applies (off by default).
-Two triggers keep it honest afterwards: an absence recorded later but notified
-in time voids that day's charge, and closing a day voids every charge on it
-(a voided paid day leaves the payment as credit).
+it (the pack that expires first goes first). The second-dog discount (off by
+default) goes to every dog of the owner there that day except the oldest one
+(by `dogs.created_at`), whatever order the days are charged in. `sell_pack`
+takes the same lock as `charge_days`, so the two never share out a pack's
+days at once.
+
+Triggers keep it honest afterwards. They void a day charge that is not linked
+to a payment when:
+
+- an absence notified in time is recorded later for a booked day (an admin
+  entering a call taken earlier);
+- a booking is cancelled in time after its day was charged;
+- a walk-in's check-in is undone (`undo_check_in`, or the attendance row is
+  cleared or moved);
+
+and closing a day voids every charge on it, paid or not (a voided paid day
+leaves the payment as credit). These voids name their reason, so if the
+reason goes away (the absence is removed, the dog is checked in again, the
+day reopens) `charge_days` charges the day again.
 
 Single days can be paid on the day or settled at the end of the month; packs
 are paid upfront. Unpaid days never block a check-in.
@@ -250,31 +284,40 @@ are paid upfront. Unpaid days never block a check-in.
 | | Staff | Admins |
 |---|---|---|
 | See balances, charges, packs, payments | yes | yes |
-| Record a payment, sell a pack (`record_payment`, `sell_pack`), changing prices on the fly | yes | yes |
+| Record a payment, sell a pack (`record_payment`, `sell_pack`), changing prices on the fly | yes, up to half off | yes |
+| Make a day or pack free, or less than half price | no | yes |
 | Add or remove absences, send a balance reminder | yes | yes |
+| Enter an earlier absence notice time, or correct booking confirm/cancel times | no | yes |
 | Edit or delete payments, void or edit charges, record refunds and corrections | no | yes |
 | Change price lists (`price_lists`) | no | yes |
 | Monthly report (`monthly_report`) | no | yes |
 
 All enforced by row-level security and the functions' own checks. Staff can
-insert a manual, succeeded payment directly but never a refund, an online
+insert a manual, succeeded payment directly, in their own name
+(`recorded_by`) and not dated in the future, but never a refund, an online
 one, or any update or delete. `record_payment` and `sell_pack` are security
-definer functions that check `is_staff()` and only reprice the day charges
-being paid (the audit log keeps the old values). `charge_days` runs for staff
+definer functions that check `is_staff()` and only reprice the unpaid day
+charges being paid (the charge records who did it; the audit log keeps the
+old values). `charge_days` runs for staff
 or for the cron job (no user); non-staff logins are refused.
 
 ### Functions the app uses
 
 - `record_payment(owner, amount_cents, method, charge_ids?, overrides?, paid_at?, note?)`:
-  links the given unpaid charges to the payment (or, with none, the oldest
-  unpaid charges that fit in the amount). `overrides` is
-  `[{id, unit_price_cents?, discount_pct?}]` for selected uncovered days.
-  Errors carry a hint: `bad_amount`, `bad_input`, `charge_not_open`.
+  links the given owing charges to the payment; the amount must cover what
+  they still owe (hint `amount_below_selected`). With none, any amount goes
+  (a part payment, money on account) and the oldest owing charges that fit
+  in it are linked. `overrides` is `[{id, unit_price_cents?, discount_pct?}]`
+  for selected unpaid, uncovered days; staff may go down to half the list
+  price, lower or free needs an admin (hint `override_admin_only`). Other
+  hints: `bad_amount`, `bad_input`, `charge_not_open`.
 - `sell_pack(owner, method, price_cents?, days?, expires_on?, vat_rate?, starts_on?, amount_cents?, paid_at?, note?)`:
   anything left out comes from the price list in force; expiry defaults to
-  start + validity months - 1 day. Creates the pack, its charge and its
-  payment, then moves the owner's unpaid, uncovered days from the start date
-  onto it. Hint `no_prices` before billing starts.
+  `pack_expiry(start, months)`: the day before the same date N months on, or
+  the last day of a shorter month (31 Aug + 6 months = 28 Feb). Creates the
+  pack, its charge and its payment, then moves the owner's unpaid, uncovered
+  days from the start date onto it. Hints `no_prices` before billing starts,
+  `override_admin_only` for a price per day under half the list's.
 - `queue_balance_reminder(owner)`: queues a `balance_reminder` email (amount
   owed, unpaid days, the owner's dogs) in the owner's language through the
   normal outbox, at most one every 3 days (hints `nothing_owed`, `no_email`,
@@ -283,8 +326,9 @@ or for the cron job (no user); non-staff logins are refused.
 - `monthly_report(month)` (admins): `{income: [per method: payments,
   received_cents, refunds, refunded_cents, net_cents], charges: [per kind:
   items, net/vat/total cents, pack_days], owing: [owners with a positive
-  balance at the end of the month]}`. Income counts by the day the money came
-  in (Bilbao time). The app exports it as CSV.
+  balance at the end of the month, with the days still unpaid then]}`. Income
+  counts by the day the money came in (Bilbao time); money that came in after
+  the month does not count towards it. The app exports it as CSV.
 
 ### The website's prices (`public-prices`)
 
@@ -324,7 +368,9 @@ The database needs no change: the webhook calls
 `record_provider_payment(provider, external_id, owner, amount_cents, method, status, paid_at?, metadata?, charge_ids?)`
 (service role only), which inserts or updates the payment by
 `(provider, external_id)`, so repeated webhooks are harmless, and settles the
-charges once the status is `succeeded`. Balances and the monthly report
+charges once the status is `succeeded`. `succeeded` is final (a late
+`pending` or `failed` event does not undo it), and an event for a known id
+with another owner or amount is refused (hint `provider_mismatch`). Balances and the monthly report
 already count only `succeeded` payments. New methods can be added to the
 `payment_method` enum with `alter type ... add value`.
 

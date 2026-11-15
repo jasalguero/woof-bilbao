@@ -16,6 +16,12 @@ describe('lineTotals (mirrors the charges columns)', () => {
     expect(lineTotals(-613, 0, 0)).toEqual({ net: -613, vat: 0, total: -613 });
     expect(lineTotals(0, 0, 21)).toEqual({ net: 0, vat: 0, total: 0 });
   });
+  it('matches the database on half cents (payments_test.sql)', () => {
+    expect(lineTotals(50, 0, 21)).toEqual({ net: 50, vat: 11, total: 61 });
+    expect(lineTotals(1001, 50, 10)).toEqual({ net: 501, vat: 50, total: 551 });
+    expect(lineTotals(1000, 12.35, 21)).toEqual({ net: 877, vat: 184, total: 1061 });
+    expect(lineTotals(-50, 0, 21)).toEqual({ net: -50, vat: -11, total: -61 });
+  });
   it('rounds halves away from zero', () => {
     expect(roundHalfAway(2.5)).toBe(3);
     expect(roundHalfAway(-2.5)).toBe(-3);
@@ -69,8 +75,15 @@ describe('parsePct', () => {
 describe('dates', () => {
   it('a pack lasts N months, like sell_pack', () => {
     expect(packExpiry('2030-01-11', 6)).toBe('2030-07-10');
-    expect(packExpiry('2026-08-31', 6)).toBe('2027-02-27'); // 28 Feb is the clamped end, minus a day
     expect(packExpiry('2026-12-01', 1)).toBe('2026-12-31');
+  });
+  it('packExpiry at the end of a month (same cases as the database tests)', () => {
+    expect(packExpiry('2030-08-31', 6)).toBe('2031-02-28');
+    expect(packExpiry('2030-01-31', 1)).toBe('2030-02-28');
+    expect(packExpiry('2030-03-01', 1)).toBe('2030-03-31');
+    expect(packExpiry('2031-08-31', 6)).toBe('2032-02-29');
+    expect(packExpiry('2030-01-30', 1)).toBe('2030-02-28');
+    expect(packExpiry('2030-12-31', 2)).toBe('2031-02-28');
   });
   it('monthRange', () => {
     expect(monthRange('2026-02-14')).toEqual({ from: '2026-02-01', to: '2026-02-28' });

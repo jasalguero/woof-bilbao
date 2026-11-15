@@ -13,7 +13,10 @@ export const ATTENDANCE_HINTS = ['closed_day', 'not_booked', 'inactive_dog', 'no
 export type AttendanceProblem = (typeof ATTENDANCE_HINTS)[number];
 
 /** Hints raised by record_payment / sell_pack / queue_balance_reminder. */
-export const PAYMENT_HINTS = ['charge_not_open', 'bad_amount', 'no_prices', 'nothing_owed', 'no_email', 'recently_reminded'] as const;
+export const PAYMENT_HINTS = [
+  'charge_not_open', 'bad_amount', 'no_prices', 'nothing_owed', 'no_email', 'recently_reminded',
+  'amount_below_selected', 'override_admin_only', 'backdate_admin_only', 'prices_in_force', 'bad_refund'
+] as const;
 export type PaymentProblem = (typeof PAYMENT_HINTS)[number];
 
 export type KnownError =

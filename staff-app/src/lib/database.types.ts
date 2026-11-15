@@ -89,6 +89,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"billing_settings": {
+                  Row: {
+                    "billing_start": string,"id": boolean,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "billing_start": string,"id"?: boolean,"updated_at"?: string
+                  }
+                  Update: {
+                    "billing_start"?: string,"id"?: boolean,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"booking_requests": {
                   Row: {
                     "booking_id": string | null,"client_ip": unknown,"created_at": string,"handled_at": string | null,"handled_by": string | null,"id": string,"payload": NonNullable<Json>,"status": Database["public"]['Enums']["request_status"]
@@ -163,14 +177,14 @@ isOneToOne: false
                   ]
                 },"charges": {
                   Row: {
-                    "booking_id": string | null,"created_at": string,"created_by": string | null,"day": string,"description": string | null,"discount_pct": number,"dog_id": string | null,"id": string,"kind": Database["public"]['Enums']["charge_kind"],"net_cents": number | null,"owner_id": string,"pack_id": string | null,"payment_id": string | null,"price_list_id": number | null,"total_cents": number | null,"unit_price_cents": number,"updated_at": string,"vat_cents": number | null,"vat_rate": number,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null,"walk_in": boolean
+                    "booking_id": string | null,"created_at": string,"created_by": string | null,"day": string,"description": string | null,"discount_pct": number,"dog_id": string | null,"id": string,"kind": Database["public"]['Enums']["charge_kind"],"net_cents": number | null,"owner_id": string,"pack_id": string | null,"payment_id": string | null,"price_list_id": number | null,"price_overridden_at": string | null,"price_overridden_by": string | null,"total_cents": number | null,"unit_price_cents": number,"updated_at": string,"vat_cents": number | null,"vat_rate": number,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null,"walk_in": boolean
                   }
                   ComputedFields: never
                   Insert: {
-                    "booking_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"day": string,"description"?: string | null,"discount_pct"?: number,"dog_id"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["charge_kind"],"net_cents"?: never,"owner_id": string,"pack_id"?: string | null,"payment_id"?: string | null,"price_list_id"?: number | null,"total_cents"?: never,"unit_price_cents": number,"updated_at"?: string,"vat_cents"?: never,"vat_rate": number,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"walk_in"?: boolean
+                    "booking_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"day": string,"description"?: string | null,"discount_pct"?: number,"dog_id"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["charge_kind"],"net_cents"?: never,"owner_id": string,"pack_id"?: string | null,"payment_id"?: string | null,"price_list_id"?: number | null,"price_overridden_at"?: string | null,"price_overridden_by"?: string | null,"total_cents"?: never,"unit_price_cents": number,"updated_at"?: string,"vat_cents"?: never,"vat_rate": number,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"walk_in"?: boolean
                   }
                   Update: {
-                    "booking_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"day"?: string,"description"?: string | null,"discount_pct"?: number,"dog_id"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["charge_kind"],"net_cents"?: never,"owner_id"?: string,"pack_id"?: string | null,"payment_id"?: string | null,"price_list_id"?: number | null,"total_cents"?: never,"unit_price_cents"?: number,"updated_at"?: string,"vat_cents"?: never,"vat_rate"?: number,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"walk_in"?: boolean
+                    "booking_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"day"?: string,"description"?: string | null,"discount_pct"?: number,"dog_id"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["charge_kind"],"net_cents"?: never,"owner_id"?: string,"pack_id"?: string | null,"payment_id"?: string | null,"price_list_id"?: number | null,"price_overridden_at"?: string | null,"price_overridden_by"?: string | null,"total_cents"?: never,"unit_price_cents"?: number,"updated_at"?: string,"vat_cents"?: never,"vat_rate"?: number,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"walk_in"?: boolean
                   }
                   Relationships: [
                     {
@@ -489,8 +503,19 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"app_now":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "append_note":
 { Args: { "p_new": string,"p_old": string }; Returns: string
+                           },
+"billing_start":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"charge_allocation":
+{ Args: { "p_owner_id"?: string,"p_until"?: string }; Returns: {
+              "charge_id": string,"day": string,"kind": Database["public"]['Enums']["charge_kind"],"owing_cents": number,"owner_id": string,"total_cents": number
+            }[]
                            },
 "charge_days":
 { Args: { "p_from": string,"p_owner_id"?: string,"p_to": string }; Returns: number
@@ -653,6 +678,9 @@ isOneToOne: false
                            },
 "notice_cutoff":
 { Args: { "p_day": string }; Returns: string
+                           },
+"pack_expiry":
+{ Args: { "p_months": number,"p_start": string }; Returns: string
                            },
 "prices_on":
 { Args: { "p_day": string }; Returns: {
